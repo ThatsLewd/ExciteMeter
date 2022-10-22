@@ -11,6 +11,8 @@ namespace ThatsLewd
   public class ExciteMeter : MVRScript
   {
 
+    JSONStorableFloat exciteMeter;
+
     public override void Init()
     {
       CreateUI();
@@ -18,12 +20,12 @@ namespace ThatsLewd
 
     void OnDestroy()
     {
-      Utils.OnDestroyUI();
+      UIBuilder.Destroy();
     }
 
     void CreateUI()
     {
-      Utils.OnInitUI(CreateUIElement);
+      UIBuilder.Init(this, CreateUIElement);
     }
 
     public void Update()

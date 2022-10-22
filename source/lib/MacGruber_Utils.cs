@@ -6,6 +6,7 @@ https://www.patreon.com/MacGruber_Laboratory
 Licensed under CC BY-SA after EarlyAccess ended. (see https://creativecommons.org/licenses/by-sa/4.0/)
 
 Minor modifications by ThatsLewd 2022-03-02
+More modifications by ThatsLewd 2022-10-22
 
 ///////////////////////////////////////////////////////////////////////////////////////////////// */
 
@@ -23,187 +24,160 @@ using SimpleJSON;
 
 namespace MacGruber
 {
-  public static class Utils
-  {
-    // VaM Plugins can contain multiple Scripts, if you load them via a *.cslist file. This function allows you to get
-    // an instance of another script within the same plugin, allowing you directly interact with it by reading/writing
-    // data, calling functions, etc.
-    public static T FindWithinSamePlugin<T>(MVRScript self) where T : MVRScript
+  // ===========================================================================================
+  // ====== UI UTILS ====== //
+  // Usage instructions:
+  // - Before using the custom UI elements, call from your MVRScript:
+  //       UIBuilder.Init(this, CreateUIElement);
+  // - When your MVRScript receives the OnDestroy message call:
+  //       UIBuilder.Destroy();
+  public class UIBuilder {
+    private static MVRScript script;
+    private static CreateUIElement ourCreateUIElement;
+    private static GameObject ourLabelWithInputPrefab;
+    private static GameObject ourLabelWithXButtonPrefab;
+    private static GameObject ourTextInfoPrefab;
+    private static GameObject ourTwinButtonPrefab;
+
+    public static void Init(MVRScript script, CreateUIElement createUIElementCallback)
     {
-      int i = self.name.IndexOf('_');
-      if (i < 0)
-        return null;
-      string prefix = self.name.Substring(0, i + 1);
-      string scriptName = prefix + typeof(T).FullName;
-      return self.containingAtom.GetStorableByID(scriptName) as T;
+      UIBuilder.script = script;
+      ourCreateUIElement = createUIElementCallback;
     }
 
-    // Get spawned prefab from CustomUnityAsset atom. Note that these are loaded asynchronously,
-    // this function returns null while the prefab is not yet there.
-    public static GameObject GetCustomUnityAsset(Atom atom, string prefabName)
+    public static void Destroy()
     {
-      Transform t = atom.transform.Find("reParentObject/object/rescaleObject/" + prefabName + "(Clone)");
-      if (t == null)
-        return null;
-      else
-        return t.gameObject;
+      SafeDestroy(ref ourLabelWithInputPrefab);
+      SafeDestroy(ref ourLabelWithXButtonPrefab);
+      SafeDestroy(ref ourTextInfoPrefab);
+      SafeDestroy(ref ourTwinButtonPrefab);
     }
-
-    // Get directory path where the plugin is located. Based on Alazi's & VAMDeluxe's method.
-    public static string GetPluginPath(MVRScript self)
-    {
-      string id = self.name.Substring(0, self.name.IndexOf('_'));
-      string filename = self.manager.GetJSON()["plugins"][id].Value;
-      return filename.Substring(0, filename.LastIndexOfAny(new char[] { '/', '\\' }));
-    }
-
-    // Get path prefix of the package that contains our plugin.
-    public static string GetPackagePath(MVRScript self)
-    {
-      string id = self.name.Substring(0, self.name.IndexOf('_'));
-      string filename = self.manager.GetJSON()["plugins"][id].Value;
-      int idx = filename.IndexOf(":/");
-      if (idx >= 0)
-        return filename.Substring(0, idx + 2);
-      else
-        return string.Empty;
-    }
-
-    // Check if our plugin is running from inside a package
-    public static bool IsInPackage(MVRScript self)
-    {
-      string id = self.name.Substring(0, self.name.IndexOf('_'));
-      string filename = self.manager.GetJSON()["plugins"][id].Value;
-      return filename.IndexOf(":/") >= 0;
-    }
-
-    // ===========================================================================================
 
     // Create VaM-UI Toggle button
-    public static JSONStorableBool SetupToggle(MVRScript script, string label, bool defaultValue, bool rightSide, bool registerStorable = true)
+    public static UIDynamicToggle SetupToggle(out JSONStorableBool storable, string label, bool defaultValue, bool rightSide, bool registerStorable = true)
     {
-      JSONStorableBool storable = new JSONStorableBool(label, defaultValue);
+      storable = new JSONStorableBool(label, defaultValue);
       storable.storeType = JSONStorableParam.StoreType.Full;
-      script.CreateToggle(storable, rightSide);
-			if (registerStorable)
-			{
-      	script.RegisterBool(storable);
-			}
-      return storable;
+      UIDynamicToggle toggle = script.CreateToggle(storable, rightSide);
+      if (registerStorable)
+      {
+        script.RegisterBool(storable);
+      }
+      return toggle;
     }
 
     // Create VaM-UI Float slider
-    public static JSONStorableFloat SetupSliderFloat(MVRScript script, string label, float defaultValue, float minValue, float maxValue, bool rightSide, bool registerStorable = true)
+    public static UIDynamicSlider SetupSliderFloat(out JSONStorableFloat storable, string label, float defaultValue, float minValue, float maxValue, bool rightSide, bool registerStorable = true)
     {
-      JSONStorableFloat storable = new JSONStorableFloat(label, defaultValue, minValue, maxValue, true, true);
+      storable = new JSONStorableFloat(label, defaultValue, minValue, maxValue, true, true);
       storable.storeType = JSONStorableParam.StoreType.Full;
-      script.CreateSlider(storable, rightSide);
-			if (registerStorable)
-			{
-      	script.RegisterFloat(storable);
-			}
-      return storable;
+      UIDynamicSlider slider = script.CreateSlider(storable, rightSide);
+      if (registerStorable)
+      {
+        script.RegisterFloat(storable);
+      }
+      return slider;
     }
 
     // Create VaM-UI Float slider
-    public static JSONStorableFloat SetupSliderFloatWithRange(MVRScript script, string label, float defaultValue, float minValue, float maxValue, bool rightSide, bool registerStorable = true)
+    public static UIDynamicSlider SetupSliderFloatWithRange(out JSONStorableFloat storable, string label, float defaultValue, float minValue, float maxValue, bool rightSide, bool registerStorable = true)
     {
-      JSONStorableFloat storable = new JSONStorableFloat(label, defaultValue, minValue, maxValue, true, true);
+      storable = new JSONStorableFloat(label, defaultValue, minValue, maxValue, true, true);
       storable.storeType = JSONStorableParam.StoreType.Full;
       storable.constrained = false;
       UIDynamicSlider slider = script.CreateSlider(storable, rightSide);
       slider.rangeAdjustEnabled = true;
-			if (registerStorable)
-			{
-      	script.RegisterFloat(storable);
-			}
-      return storable;
+      if (registerStorable)
+      {
+        script.RegisterFloat(storable);
+      }
+      return slider;
     }
 
     // Create VaM-UI Float slider
-    public static JSONStorableFloat SetupSliderInt(MVRScript script, string label, int defaultValue, int minValue, int maxValue, bool rightSide, bool registerStorable = true)
+    public static UIDynamicSlider SetupSliderInt(out JSONStorableFloat storable, string label, int defaultValue, int minValue, int maxValue, bool rightSide, bool registerStorable = true)
     {
-      JSONStorableFloat storable = new JSONStorableFloat(label, defaultValue, minValue, maxValue, true, true);
+      storable = new JSONStorableFloat(label, defaultValue, minValue, maxValue, true, true);
       storable.storeType = JSONStorableParam.StoreType.Full;
       UIDynamicSlider slider = script.CreateSlider(storable, rightSide);
       slider.slider.wholeNumbers = true;
       slider.valueFormat = "F0";
-			if (registerStorable)
-			{
-      	script.RegisterFloat(storable);
-			}
-      return storable;
+      if (registerStorable)
+      {
+        script.RegisterFloat(storable);
+      }
+      return slider;
     }
 
     // Create VaM-UI ColorPicker
-    public static JSONStorableColor SetupColor(MVRScript script, string label, Color color, bool rightSide, bool registerStorable = true)
+    public static UIDynamicColorPicker SetupColor(out JSONStorableColor storable, string label, Color color, bool rightSide, bool registerStorable = true)
     {
       HSVColor hsvColor = HSVColorPicker.RGBToHSV(color.r, color.g, color.b);
-      JSONStorableColor storable = new JSONStorableColor(label, hsvColor);
+      storable = new JSONStorableColor(label, hsvColor);
       storable.storeType = JSONStorableParam.StoreType.Full;
-      script.CreateColorPicker(storable, rightSide);
-			if (registerStorable)
-			{
-      	script.RegisterColor(storable);
-			}
-      return storable;
+      UIDynamicColorPicker picker = script.CreateColorPicker(storable, rightSide);
+      if (registerStorable)
+      {
+        script.RegisterColor(storable);
+      }
+      return picker;
     }
 
     // Create VaM-UI StringChooser
-    public static JSONStorableStringChooser SetupStringChooser(MVRScript self, string label, List<string> entries, bool rightSide, bool registerStorable = true)
+    public static UIDynamicPopup SetupStringChooser(out JSONStorableStringChooser storable, string label, List<string> entries, bool rightSide, bool registerStorable = true)
     {
       string defaultEntry = entries.Count > 0 ? entries[0] : "";
-      JSONStorableStringChooser storable = new JSONStorableStringChooser(label, entries, defaultEntry, label);
-      self.CreateScrollablePopup(storable, rightSide);
-			if (registerStorable)
-			{
-      	self.RegisterStringChooser(storable);
-			}
-      return storable;
+      storable = new JSONStorableStringChooser(label, entries, defaultEntry, label);
+      UIDynamicPopup popup = script.CreateScrollablePopup(storable, rightSide);
+      if (registerStorable)
+      {
+        script.RegisterStringChooser(storable);
+      }
+      return popup;
     }
 
     // Create VaM-UI StringChooser
-    public static JSONStorableStringChooser SetupStringChooser(MVRScript self, string label, List<string> entries, int defaultIndex, bool rightSide, bool registerStorable = true)
+    public static UIDynamicPopup SetupStringChooser(out JSONStorableStringChooser storable, string label, List<string> entries, int defaultIndex, bool rightSide, bool registerStorable = true)
     {
       string defaultEntry = (defaultIndex >= 0 && defaultIndex < entries.Count) ? entries[defaultIndex] : "";
-      JSONStorableStringChooser storable = new JSONStorableStringChooser(label, entries, defaultEntry, label);
-      self.CreateScrollablePopup(storable, rightSide);
-			if (registerStorable)
-			{
-      	self.RegisterStringChooser(storable);
-			}
-      return storable;
+      storable = new JSONStorableStringChooser(label, entries, defaultEntry, label);
+      UIDynamicPopup popup = script.CreateScrollablePopup(storable, rightSide);
+      if (registerStorable)
+      {
+        script.RegisterStringChooser(storable);
+      }
+      return popup;
     }
 
     // Create VaM-UI StringChooser for Enum
-    public static JSONStorableStringChooser SetupEnumChooser<TEnum>(MVRScript self, string label, TEnum defaultValue, bool rightSide, EnumSetCallback<TEnum> callback, bool registerStorable = true)
+    public static UIDynamicPopup SetupEnumChooser<TEnum>(out JSONStorableStringChooser storable, string label, TEnum defaultValue, bool rightSide, EnumSetCallback<TEnum> callback, bool registerStorable = true)
       where TEnum : struct, IComparable, IConvertible, IFormattable
     {
       List<string> names = Enum.GetNames(typeof(TEnum)).ToList();
-      JSONStorableStringChooser storable = new JSONStorableStringChooser(label, names, defaultValue.ToString(), label);
+      storable = new JSONStorableStringChooser(label, names, defaultValue.ToString(), label);
       storable.setCallbackFunction += (string name) =>
       {
         TEnum v = (TEnum)Enum.Parse(typeof(TEnum), name);
         callback(v);
       };
-      self.CreateScrollablePopup(storable, rightSide);
-			if (registerStorable)
-			{
-      	self.RegisterStringChooser(storable);
-			}
-      return storable;
+      UIDynamicPopup popup = script.CreateScrollablePopup(storable, rightSide);
+      if (registerStorable)
+      {
+        script.RegisterStringChooser(storable);
+      }
+      return popup;
     }
 
     // Create VaM-UI TextureChooser. Note that you are responsible for destroying the texture when you don't need it anymore.
-    public static JSONStorableUrl SetupTexture2DChooser(MVRScript self, string label, string defaultValue, bool rightSide, TextureSettings settings, TextureSetCallback callback, bool registerStorable = true)
+    public static void SetupTexture2DChooser(out JSONStorableUrl storable, string label, string defaultValue, bool rightSide, TextureSettings settings, TextureSetCallback callback, bool registerStorable = true)
     {
-      JSONStorableUrl storable = new JSONStorableUrl(label, string.Empty, (string url) => { QueueLoadTexture(url, settings, callback); }, "jpg|png|tif|tiff");
+      storable = new JSONStorableUrl(label, string.Empty, (string url) => { QueueLoadTexture(url, settings, callback); }, "jpg|png|tif|tiff");
       if (registerStorable)
-			{
-				self.RegisterUrl(storable);
-			}
-      UIDynamicButton button = self.CreateButton("Browse " + label, false);
-      UIDynamicTextField textfield = self.CreateTextField(storable, false);
+      {
+        script.RegisterUrl(storable);
+      }
+      UIDynamicButton button = script.CreateButton("Browse " + label, false);
+      UIDynamicTextField textfield = script.CreateTextField(storable, false);
       textfield.UItext.alignment = TextAnchor.MiddleRight;
       textfield.UItext.horizontalOverflow = HorizontalWrapMode.Overflow;
       textfield.UItext.verticalOverflow = VerticalWrapMode.Truncate;
@@ -213,19 +187,18 @@ namespace MacGruber
       if (!string.IsNullOrEmpty(defaultValue))
         storable.SetFilePath(defaultValue);
       storable.RegisterFileBrowseButton(button.button);
-      return storable;
     }
 
     // Create VaM-UI AssetBundleChooser.
-    public static JSONStorableUrl SetupAssetBundleChooser(MVRScript self, string label, string defaultValue, bool rightSide, string fileExtensions, bool registerStorable = true)
+    public static void SetupAssetBundleChooser(out JSONStorableUrl storable, string label, string defaultValue, bool rightSide, string fileExtensions, bool registerStorable = true)
     {
-      JSONStorableUrl storable = new JSONStorableUrl(label, defaultValue, fileExtensions);
+      storable = new JSONStorableUrl(label, defaultValue, fileExtensions);
       if (registerStorable)
-			{
-				self.RegisterUrl(storable);
-			}
-      UIDynamicButton button = self.CreateButton("Select " + label, false);
-      UIDynamicTextField textfield = self.CreateTextField(storable, false);
+      {
+        script.RegisterUrl(storable);
+      }
+      UIDynamicButton button = script.CreateButton("Select " + label, false);
+      UIDynamicTextField textfield = script.CreateTextField(storable, false);
       textfield.UItext.alignment = TextAnchor.MiddleRight;
       textfield.UItext.horizontalOverflow = HorizontalWrapMode.Overflow;
       textfield.UItext.verticalOverflow = VerticalWrapMode.Truncate;
@@ -235,19 +208,18 @@ namespace MacGruber
       if (!string.IsNullOrEmpty(defaultValue))
         storable.SetFilePath(defaultValue);
       storable.RegisterFileBrowseButton(button.button);
-      return storable;
     }
 
     // Create VaM-UI InfoText field
-    public static JSONStorableString SetupInfoText(MVRScript script, string text, float height, bool rightSide)
+    public static UIDynamicTextField SetupInfoText(string text, float height, bool rightSide)
     {
       JSONStorableString storable = new JSONStorableString("Info", text);
-      UIDynamic textfield = script.CreateTextField(storable, rightSide);
+      UIDynamicTextField textfield = script.CreateTextField(storable, rightSide);
       textfield.height = height;
-      return storable;
+      return textfield;
     }
 
-    public static UIDynamic SetupSpacer(MVRScript script, float height, bool rightSide)
+    public static UIDynamic SetupSpacer(float height, bool rightSide)
     {
       UIDynamic spacer = script.CreateSpacer(rightSide);
       spacer.height = height;
@@ -255,7 +227,7 @@ namespace MacGruber
     }
 
     // Create VaM-UI button
-    public static UIDynamicButton SetupButton(MVRScript script, string label, UnityAction callback, bool rightSide)
+    public static UIDynamicButton SetupButton(string label, UnityAction callback, bool rightSide)
     {
       UIDynamicButton button = script.CreateButton(label, rightSide);
       button.button.onClick.AddListener(callback);
@@ -263,26 +235,19 @@ namespace MacGruber
     }
 
     // Create input action trigger
-    public static JSONStorableAction SetupAction(MVRScript script, string name, JSONStorableAction.ActionCallback callback)
+    public static void SetupAction(out JSONStorableAction action, string name, JSONStorableAction.ActionCallback callback)
     {
-      JSONStorableAction action = new JSONStorableAction(name, callback);
+      action = new JSONStorableAction(name, callback);
       script.RegisterAction(action);
-      return action;
     }
-
 
     // ===========================================================================================
     // Custom UI system with new UI elements and the ability to easily add/remove UI at runtime
-    //
-    // Usage instructions:
-    // - Before using the custom UI elements, call from your MVRScript:
-    //       Utils.OnInitUI(CreateUIElement);
-    // - When your MVRScript receives the OnDestroy message call:
-    //       Utils.OnDestroyUI();
 
     // Create one-line text input with label
-    public static UIDynamicLabelInput SetupTextInput(MVRScript script, string label, JSONStorableString storable, bool rightSide)
+    public static UIDynamicLabelInput SetupTextInput(out JSONStorableString storable, string label, string defaultValue, bool rightSide)
     {
+      storable = new JSONStorableString(label, defaultValue);
       if (ourLabelWithInputPrefab == null)
       {
         ourLabelWithInputPrefab = new GameObject("LabelInput");
@@ -355,7 +320,7 @@ namespace MacGruber
     }
 
     // Create label that as an X button on the right side.
-    public static UIDynamicLabelXButton SetupLabelXButton(MVRScript script, string label, UnityAction callback, bool rightSide)
+    public static UIDynamicLabelXButton SetupLabelXButton(string label, UnityAction callback, bool rightSide)
     {
       if (ourLabelWithXButtonPrefab == null)
       {
@@ -417,7 +382,7 @@ namespace MacGruber
       }
     }
 
-    public static UIDynamicTextInfo SetupInfoTextNoScroll(MVRScript script, string text, float height, bool rightSide)
+    public static UIDynamicTextInfo SetupInfoTextNoScroll(string text, float height, bool rightSide)
     {
       if (ourTextInfoPrefab == null)
       {
@@ -470,32 +435,14 @@ namespace MacGruber
       }
     }
 
-    public static UIDynamicTextInfo SetupInfoTextNoScroll(MVRScript script, JSONStorableString storable, float height, bool rightSide)
+    public static UIDynamicTextInfo SetupInfoOneLine(string text, bool rightSide)
     {
-      UIDynamicTextInfo uid = SetupInfoTextNoScroll(script, storable.val, height, rightSide);
-      storable.setCallbackFunction = (string text) =>
-      {
-        if (uid != null && uid.text != null)
-          uid.text.text = text;
-      };
-      return uid;
-    }
-
-    public static UIDynamicTextInfo SetupInfoOneLine(MVRScript script, string text, bool rightSide)
-    {
-      UIDynamicTextInfo uid = SetupInfoTextNoScroll(script, text, 35, rightSide);
+      UIDynamicTextInfo uid = SetupInfoTextNoScroll(text, 35, rightSide);
       uid.background.offsetMin = new Vector2(0, 0);
       return uid;
     }
 
-    public static UIDynamicTextInfo SetupInfoOneLine(MVRScript script, JSONStorableString storable, bool rightSide)
-    {
-      UIDynamicTextInfo uid = SetupInfoTextNoScroll(script, storable, 35, rightSide);
-      uid.background.offsetMin = new Vector2(0, 0);
-      return uid;
-    }
-
-    public static UIDynamicTwinButton SetupTwinButton(MVRScript script, string leftLabel, UnityAction leftCallback, string rightLabel, UnityAction rightCallback, bool rightSide)
+    public static UIDynamicTwinButton SetupTwinButton(string leftLabel, UnityAction leftCallback, string rightLabel, UnityAction rightCallback, bool rightSide)
     {
       if (ourTwinButtonPrefab == null)
       {
@@ -552,7 +499,7 @@ namespace MacGruber
     }
 
     // Call to remove a list of UI elements before rebuilding your UI.
-    public static void RemoveUIElements(MVRScript script, List<object> menuElements)
+    public static void RemoveUIElements(List<object> menuElements)
     {
       for (int i = 0; i < menuElements.Count; ++i)
       {
@@ -609,69 +556,6 @@ namespace MacGruber
       menuElements.Clear();
     }
 
-    public delegate Transform CreateUIElement(Transform prefab, bool rightSide);
-    public static void OnInitUI(CreateUIElement createUIElementCallback)
-    {
-      ourCreateUIElement = createUIElementCallback;
-    }
-
-    public static void OnDestroyUI()
-    {
-      SafeDestroy(ref ourLabelWithInputPrefab);
-      SafeDestroy(ref ourLabelWithXButtonPrefab);
-      SafeDestroy(ref ourTextInfoPrefab);
-      SafeDestroy(ref ourTwinButtonPrefab);
-    }
-
-    private static void SafeDestroy(ref GameObject go)
-    {
-      if (go != null)
-      {
-        UnityEngine.Object.Destroy(go);
-        go = null;
-      }
-    }
-
-    private static CreateUIElement ourCreateUIElement;
-    private static GameObject ourLabelWithInputPrefab;
-    private static GameObject ourLabelWithXButtonPrefab;
-    private static GameObject ourTextInfoPrefab;
-    private static GameObject ourTwinButtonPrefab;
-
-    // ===========================================================================================
-
-    // Helper to add a component if missing.
-    public static T GetOrAddComponent<T>(Component c) where T : Component
-    {
-      T t = c.GetComponent<T>();
-      if (t == null)
-        t = c.gameObject.AddComponent<T>();
-      return t;
-    }
-
-    // Adjust slider max range to next power of 10 (1, 10, 100, 1000, ...) from slider value
-    public static void AdjustSliderRange(JSONStorableFloat slider)
-    {
-      float m = Mathf.Log10(slider.val);
-      m = Mathf.Max(Mathf.Ceil(m), 1);
-      slider.max = Mathf.Pow(10, m);
-    }
-
-    // Adjust maxSlider value and max range after minSlider was changed to ensure minSlider <= maxSlider.
-    public static void AdjustMaxSliderFromMin(float minValue, JSONStorableFloat maxSlider)
-    {
-      if (maxSlider.slider != null)
-        maxSlider.max = maxSlider.slider.maxValue; // slider sometimes does not update the storable
-
-      float v = Mathf.Max(minValue, maxSlider.val);
-      float m = Mathf.Max(v, maxSlider.max);
-      m = Mathf.Max(Mathf.Ceil(Mathf.Log10(m)), 1);
-      maxSlider.max = Mathf.Pow(10, m);
-      maxSlider.valNoCallback = v;
-    }
-
-    // ===========================================================================================
-
     private static void QueueLoadTexture(string url, TextureSettings settings, TextureSetCallback callback)
     {
       if (ImageLoaderThreaded.singleton == null)
@@ -707,9 +591,101 @@ namespace MacGruber
       ImageLoaderThreaded.singleton.QueueImage(queuedImage);
     }
 
+    private static void SafeDestroy(ref GameObject go)
+    {
+      if (go != null)
+      {
+        UnityEngine.Object.Destroy(go);
+        go = null;
+      }
+    }
+  }
 
+  // ===========================================================================================
+  // ====== GENERAL UTILS ====== //
+  public static class Utils
+  {
+    // VaM Plugins can contain multiple Scripts, if you load them via a *.cslist file. This function allows you to get
+    // an instance of another script within the same plugin, allowing you directly interact with it by reading/writing
+    // data, calling functions, etc.
+    public static T FindWithinSamePlugin<T>(MVRScript self) where T : MVRScript
+    {
+      int i = self.name.IndexOf('_');
+      if (i < 0)
+        return null;
+      string prefix = self.name.Substring(0, i + 1);
+      string scriptName = prefix + typeof(T).FullName;
+      return self.containingAtom.GetStorableByID(scriptName) as T;
+    }
 
+    // Get spawned prefab from CustomUnityAsset atom. Note that these are loaded asynchronously,
+    // this function returns null while the prefab is not yet there.
+    public static GameObject GetCustomUnityAsset(Atom atom, string prefabName)
+    {
+      Transform t = atom.transform.Find("reParentObject/object/rescaleObject/" + prefabName + "(Clone)");
+      if (t == null)
+        return null;
+      else
+        return t.gameObject;
+    }
 
+    // Get directory path where the plugin is located. Based on Alazi's & VAMDeluxe's method.
+    public static string GetPluginPath(MVRScript self)
+    {
+      string id = self.name.Substring(0, self.name.IndexOf('_'));
+      string filename = self.manager.GetJSON()["plugins"][id].Value;
+      return filename.Substring(0, filename.LastIndexOfAny(new char[] { '/', '\\' }));
+    }
+
+    // Get path prefix of the package that contains our plugin.
+    public static string GetPackagePath(MVRScript self)
+    {
+      string id = self.name.Substring(0, self.name.IndexOf('_'));
+      string filename = self.manager.GetJSON()["plugins"][id].Value;
+      int idx = filename.IndexOf(":/");
+      if (idx >= 0)
+        return filename.Substring(0, idx + 2);
+      else
+        return string.Empty;
+    }
+
+    // Check if our plugin is running from inside a package
+    public static bool IsInPackage(MVRScript self)
+    {
+      string id = self.name.Substring(0, self.name.IndexOf('_'));
+      string filename = self.manager.GetJSON()["plugins"][id].Value;
+      return filename.IndexOf(":/") >= 0;
+    }
+
+    // Helper to add a component if missing.
+    public static T GetOrAddComponent<T>(Component c) where T : Component
+    {
+      T t = c.GetComponent<T>();
+      if (t == null)
+        t = c.gameObject.AddComponent<T>();
+      return t;
+    }
+
+    // Adjust slider max range to next power of 10 (1, 10, 100, 1000, ...) from slider value
+    public static void AdjustSliderRange(JSONStorableFloat slider)
+    {
+      float m = Mathf.Log10(slider.val);
+      m = Mathf.Max(Mathf.Ceil(m), 1);
+      slider.max = Mathf.Pow(10, m);
+    }
+
+    // Adjust maxSlider value and max range after minSlider was changed to ensure minSlider <= maxSlider.
+    public static void AdjustMaxSliderFromMin(float minValue, JSONStorableFloat maxSlider)
+    {
+      if (maxSlider.slider != null)
+        maxSlider.max = maxSlider.slider.maxValue; // slider sometimes does not update the storable
+
+      float v = Mathf.Max(minValue, maxSlider.val);
+      float m = Mathf.Max(v, maxSlider.max);
+      m = Mathf.Max(Mathf.Ceil(Mathf.Log10(m)), 1);
+      maxSlider.max = Mathf.Pow(10, m);
+      maxSlider.valNoCallback = v;
+    }
 
     public static void LogTransform(string message, Transform t)
     {
@@ -777,7 +753,8 @@ namespace MacGruber
   }
 
   // ===========================================================================================
-
+  // ====== HELPER TYPES ====== //
+  public delegate Transform CreateUIElement(Transform prefab, bool rightSide);
   public delegate void EnumSetCallback<TEnum>(TEnum v);
   public delegate void TextureSetCallback(Texture2D tex);
 
@@ -795,8 +772,6 @@ namespace MacGruber
     public int anisoLevel = 5; // 0: Forced off, 1: Off, quality setting can override, 2-9: Anisotropic filtering levels.
   }
 
-  // ===========================================================================================
-
   public class AssetBundleAudioClip : NamedAudioClip
   {
     public AssetBundleAudioClip(Request aRequest, string aPath, string aName)
@@ -810,7 +785,39 @@ namespace MacGruber
     }
   }
 
+  public class UIDynamicUtils : UIDynamic
+  {
+  }
+
+  public class UIDynamicLabelInput : UIDynamicUtils
+  {
+    public Text label;
+    public InputField input;
+  }
+
+  public class UIDynamicLabelXButton : UIDynamicUtils
+  {
+    public Text label;
+    public Button button;
+  }
+
+  public class UIDynamicTwinButton : UIDynamicUtils
+  {
+    public Text labelLeft;
+    public Text labelRight;
+    public Button buttonLeft;
+    public Button buttonRight;
+  }
+
+  public class UIDynamicTextInfo : UIDynamicUtils
+  {
+    public Text text;
+    public LayoutElement layout;
+    public RectTransform background;
+  }
+
   // ===========================================================================================
+  // ====== TRIGGER HELPERS ====== //
 
   // TriggerHandler implementation for easier handling of custom triggers.
   // Essentially call this in your plugin init code:
@@ -1075,38 +1082,5 @@ namespace MacGruber
           actionsNeedingUpdateOut.Add(discreteActionsEnd[i]);
       }
     }
-  }
-
-  // ===========================================================================================
-
-  public class UIDynamicUtils : UIDynamic
-  {
-  }
-
-  public class UIDynamicLabelInput : UIDynamicUtils
-  {
-    public Text label;
-    public InputField input;
-  }
-
-  public class UIDynamicLabelXButton : UIDynamicUtils
-  {
-    public Text label;
-    public Button button;
-  }
-
-  public class UIDynamicTwinButton : UIDynamicUtils
-  {
-    public Text labelLeft;
-    public Text labelRight;
-    public Button buttonLeft;
-    public Button buttonRight;
-  }
-
-  public class UIDynamicTextInfo : UIDynamicUtils
-  {
-    public Text text;
-    public LayoutElement layout;
-    public RectTransform background;
   }
 }
