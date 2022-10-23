@@ -9,16 +9,14 @@ namespace ThatsLewd
   class TriggerBreakpoint
   {
     public float value;
-    public float weight;
     public EventTrigger action;
 
-    public float GetCompensatedWeight(float excitement)
+    public float GetCompensatedWeight(float excitement, float decay)
     {
-      if (excitement == 0 || weight == 0) return 0;
-      // https://www.desmos.com/calculator/jdchiio9rm
-      float diff = 1f - (excitement - value) / 1000f;
-      diff = Mathf.Pow(diff, 5f);
-      return (1 - diff) * Mathf.Pow(0.8f * weight, 3f) + diff;
+      float scaledDecay = 1000f * decay;
+      if (scaledDecay == 0) return 0;
+      // https://www.desmos.com/calculator/8rwoipduys
+      return Mathf.Clamp01(Mathf.Pow(2f, -(excitement - value) / scaledDecay));
     }
   }
 
@@ -31,17 +29,27 @@ namespace ThatsLewd
     JSONStorableFloat fillVarianceStorable;
     JSONStorableFloat triggerTimeMinStorable;
     JSONStorableFloat triggerTimeMaxStorable;
+    JSONStorableFloat exciteDiffDecayStorable;
     JSONStorableFloat maxExciteDiffStorable;
+
+    JSONStorableString stateInfo;
+
+    EventTrigger onClimaxTrigger;
 
     float timer = 0f;
     float currentFillTime = 0f;
     float nextTriggerTime = 0f;
+    bool playingLastFrame = false;
+
+    float lastSlowUpdateTime = 0f;
+    TriggerBreakpoint lastTrigger = null;
 
     List<TriggerBreakpoint> triggers = new List<TriggerBreakpoint>();
     List<object> triggerMenuItems = new List<object>();
 
     public override void Init()
     {
+      onClimaxTrigger = new EventTrigger(this, "OnClimax Trigger");
       CreateUI();
     }
 
@@ -56,19 +64,29 @@ namespace ThatsLewd
       UIBuilder.Init(this, CreateUIElement);
 
       UIBuilder.CreateToggle(out playingStorable, "Is Playing", false, false);
-      UIBuilder.CreateSliderFloat(out exciteMeterStorable, "Excite Meter", 0f, 0f, 1000f, false, false);
-      UIBuilder.CreateAction(out resetTimerActionStorable, "Reset Meter", HandleResetTimer);
-      UIDynamicButton resetButton = UIBuilder.CreateButton("Reset Meter", HandleResetTimer, false);
+      UIBuilder.CreateSliderInt(out exciteMeterStorable, "Excitement Meter", 0f, 0f, 1000f, false, false);
+      UIBuilder.CreateAction(out resetTimerActionStorable, "Reset Excitement", HandleResetMeter);
+      UIDynamicButton resetButton = UIBuilder.CreateButton("Reset Excitement", HandleResetMeter, false);
       resetButton.buttonColor = UIBuilder.UIColor.YELLOW;
       UIBuilder.CreateSpacer(20f, false);
 
-      UIBuilder.CreateSliderFloatWithRange(out fillTimeStorable, "Fill Time", 300f, 0f, 1200f, false);
+      stateInfo = new JSONStorableString("StateInfo", "");
+      UIDynamic stateInfoTextField = CreateTextField(stateInfo, false);
+      stateInfoTextField.height = 80f;
+
+      UIBuilder.CreateSliderIntWithRange(out fillTimeStorable, "Fill Time", 600f, 0f, 1200f, false);
+      fillTimeStorable.setCallbackFunction += (val) => { RecalculateFillTime(); };
       UIBuilder.CreateSliderFloat(out fillVarianceStorable, "Fill Variance", 0.5f, 0f, 1f, false);
+      fillVarianceStorable.setCallbackFunction += (val) => { RecalculateFillTime(); };
 
       UIBuilder.CreateSliderFloatWithRange(out triggerTimeMinStorable, "Trigger Time Min", 10f, 0f, 60f, false);
       UIBuilder.CreateSliderFloatWithRange(out triggerTimeMaxStorable, "Trigger Time Max", 20f, 0f, 60f, false);
 
+      UIBuilder.CreateSliderFloat(out exciteDiffDecayStorable, "Excitement Diff Decay", 0.1f, 0f, 1f, false);
       UIBuilder.CreateSliderInt(out maxExciteDiffStorable, "Max Excitement Diff", 500f, 0f, 1000f, false);
+
+      UIDynamicButton climaxTriggerButton = UIBuilder.CreateButton("Assign Climax Action", onClimaxTrigger.OpenPanel, false);
+      climaxTriggerButton.buttonColor = UIBuilder.UIColor.BLUE;
 
       UIBuilder.CreateTwinButton("Add Trigger", HandleAddTrigger, "Sort Triggers", HandleSortTriggers, true);
       UIBuilder.CreateSpacer(20f, true);
@@ -85,9 +103,8 @@ namespace ThatsLewd
         UIDynamicLabelXButton labelX = UIBuilder.CreateLabelXButton($"Trigger {i + 1}", () => { HandleRemoveTrigger(trigger); }, true);
         triggerMenuItems.Add(labelX);
 
-        UIDynamicButton assignButton = UIBuilder.CreateButton("Assign Trigger", trigger.action.OpenPanel, true);
-        assignButton.buttonColor = UIBuilder.UIColor.BLUE;
-        triggerMenuItems.Add(assignButton);
+        UIDynamicTwinButton twinButtons = UIBuilder.CreateTwinButton("Assign Action", trigger.action.OpenPanel, "Duplicate Trigger", () => { HandleDuplicateTrigger(trigger); }, true);
+        triggerMenuItems.Add(twinButtons);
 
         JSONStorableFloat valueStorable;
         UIDynamicSlider valueSlider = UIBuilder.CreateSliderInt(out valueStorable, "Excitement Value", 0f, 0f, 1000f, true, false);
@@ -95,18 +112,12 @@ namespace ThatsLewd
         valueStorable.setCallbackFunction += (float val) => { trigger.value = val; };
         triggerMenuItems.Add(valueSlider);
 
-        JSONStorableFloat weightStorable;
-        UIDynamicSlider weightSlider = UIBuilder.CreateSliderFloat(out weightStorable, "Weight", 1f, 0f, 1f, true, false);
-        weightStorable.valNoCallback = trigger.weight;
-        weightStorable.setCallbackFunction += (float val) => { trigger.weight = val; };
-        triggerMenuItems.Add(weightSlider);
-
         UIDynamic spacer = UIBuilder.CreateSpacer(20f, true);
         triggerMenuItems.Add(spacer);
       }
     }
 
-    void HandleResetTimer()
+    void HandleResetMeter()
     {
       exciteMeterStorable.val = 0f;
     }
@@ -116,8 +127,18 @@ namespace ThatsLewd
       TriggerBreakpoint trigger = new TriggerBreakpoint()
       {
         value = 0f,
-        weight = 1f,
         action = new EventTrigger(this, "Trigger Action"),
+      };
+      triggers.Add(trigger);
+      RebuildTriggersUI();
+    }
+
+    void HandleDuplicateTrigger(TriggerBreakpoint fromTrigger)
+    {
+      TriggerBreakpoint trigger = new TriggerBreakpoint()
+      {
+        value = fromTrigger.value,
+        action = new EventTrigger(fromTrigger.action),
       };
       triggers.Add(trigger);
       RebuildTriggersUI();
@@ -149,11 +170,46 @@ namespace ThatsLewd
       triggers.Clear();
     }
 
+    void UpdateStateInfoUI()
+    {
+      string lastTriggerString;
+      if (lastTrigger == null) {
+        lastTriggerString = "null";
+      } else {
+        int i = triggers.FindIndex((t) => t.Equals(lastTrigger));
+        lastTriggerString = $"Trigger {i + 1}";
+      }
+      stateInfo.val = $@"
+<color=#000><b>Last Trigger:</b></color> <color=#333>{lastTriggerString}</color>";
+    }
+
     public void Update()
     {
-      if (!playingStorable.val) return;
+      if (Time.time - lastSlowUpdateTime > 0.5)
+      {
+        lastSlowUpdateTime = Time.time;
+        UpdateStateInfoUI();
+      }
+
+      if (!playingStorable.val)
+      {
+        playingLastFrame = false;
+        return;
+      }
+
+      if (exciteMeterStorable.val >= 1000f)
+      {
+        if (playingLastFrame)
+        {
+          onClimaxTrigger.Trigger();
+        }
+
+        playingLastFrame = false;
+        return;
+      }
 
       timer += Time.deltaTime;
+      playingLastFrame = true;
 
       if (timer > nextTriggerTime)
       {
@@ -177,7 +233,7 @@ namespace ThatsLewd
         {
           continue;
         }
-        totalWeight += trigger.GetCompensatedWeight(exciteMeterStorable.val);
+        totalWeight += trigger.GetCompensatedWeight(exciteMeterStorable.val, exciteDiffDecayStorable.val);
         potentialTriggers.Add(trigger);
       }
       potentialTriggers.Sort((a, b) =>
@@ -193,7 +249,7 @@ namespace ThatsLewd
       float w = 0f;
       foreach (var trigger in potentialTriggers)
       {
-        w += trigger.GetCompensatedWeight(exciteMeterStorable.val);
+        w += trigger.GetCompensatedWeight(exciteMeterStorable.val, exciteDiffDecayStorable.val);
         if (w >= r)
         {
           selectedTrigger = trigger;
@@ -201,6 +257,7 @@ namespace ThatsLewd
         }
       }
 
+      lastTrigger = selectedTrigger;
       if (selectedTrigger != null)
       {
         selectedTrigger.action.Trigger();
@@ -221,12 +278,13 @@ namespace ThatsLewd
       {
         needsStore = true;
 
+        json[onClimaxTrigger.Name] = onClimaxTrigger.GetJSON(base.subScenePrefix);
+
         JSONArray triggersJSON = new JSONArray();
         foreach (var trigger in triggers)
         {
           JSONClass triggerJSON = new JSONClass();
           triggerJSON["Value"].AsFloat = trigger.value;
-          triggerJSON["Weight"].AsFloat = trigger.weight;
           triggerJSON[trigger.action.Name] = trigger.action.GetJSON(base.subScenePrefix);
 
           triggersJSON.Add(triggerJSON);
@@ -244,8 +302,9 @@ namespace ThatsLewd
 
       if (!base.physicalLocked && restorePhysical && !IsCustomPhysicalParamLocked("trigger"))
       {
-        RemoveAllTriggers();
+        onClimaxTrigger.RestoreFromJSON(json, base.subScenePrefix, base.mergeRestore, setMissingToDefault);
 
+        RemoveAllTriggers();
         JSONArray triggersJSON = json["Triggers"].AsArray;
         for (int i = 0; i < triggersJSON.Count; i++)
         {
@@ -253,7 +312,6 @@ namespace ThatsLewd
           TriggerBreakpoint trigger = new TriggerBreakpoint()
           {
             value = triggerJSON["Value"].AsFloat,
-            weight = triggerJSON["Weight"].AsFloat,
             action = new EventTrigger(this, "Trigger Action"),
           };
           trigger.action.RestoreFromJSON(triggerJSON, base.subScenePrefix, base.mergeRestore, setMissingToDefault);

@@ -124,6 +124,22 @@ namespace MacGruber
       return slider;
     }
 
+    // Create VaM-UI Float slider
+    public static UIDynamicSlider CreateSliderIntWithRange(out JSONStorableFloat storable, string label, float defaultValue, float minValue, float maxValue, bool rightSide, bool registerStorable = true)
+    {
+      storable = new JSONStorableFloat(label, defaultValue, minValue, maxValue, true, true);
+      storable.storeType = JSONStorableParam.StoreType.Full;
+      storable.constrained = false;
+      UIDynamicSlider slider = script.CreateSlider(storable, rightSide);
+      slider.slider.wholeNumbers = true;
+      slider.valueFormat = "F0";
+      if (registerStorable)
+      {
+        script.RegisterFloat(storable);
+      }
+      return slider;
+    }
+
     // Create VaM-UI ColorPicker
     public static UIDynamicColorPicker CreateColor(out JSONStorableColor storable, string label, Color color, bool rightSide, bool registerStorable = true)
     {
