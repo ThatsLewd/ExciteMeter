@@ -31,13 +31,15 @@ namespace MacGruber
   //       UIBuilder.Init(this, CreateUIElement);
   // - When your MVRScript receives the OnDestroy message call:
   //       UIBuilder.Destroy();
-  public class UIBuilder {
-    private static MVRScript script;
-    private static CreateUIElement ourCreateUIElement;
-    private static GameObject ourLabelWithInputPrefab;
-    private static GameObject ourLabelWithXButtonPrefab;
-    private static GameObject ourTextInfoPrefab;
-    private static GameObject ourTwinButtonPrefab;
+  public class UIBuilder
+  {
+    public static class UIColor
+    {
+      public readonly static Color GREEN = new Color(0.5f, 1.0f, 0.5f);
+      public readonly static Color RED = new Color(1.0f, 0.5f, 0.5f);
+      public readonly static Color YELLOW = new Color(1.0f, 1.0f, 0.5f);
+      public readonly static Color BLUE = new Color(0.5f, 0.5f, 1.0f);
+    }
 
     public static void Init(MVRScript script, CreateUIElement createUIElementCallback)
     {
@@ -54,7 +56,7 @@ namespace MacGruber
     }
 
     // Create VaM-UI Toggle button
-    public static UIDynamicToggle SetupToggle(out JSONStorableBool storable, string label, bool defaultValue, bool rightSide, bool registerStorable = true)
+    public static UIDynamicToggle CreateToggle(out JSONStorableBool storable, string label, bool defaultValue, bool rightSide, bool registerStorable = true)
     {
       storable = new JSONStorableBool(label, defaultValue);
       storable.storeType = JSONStorableParam.StoreType.Full;
@@ -67,7 +69,7 @@ namespace MacGruber
     }
 
     // Create VaM-UI Float slider
-    public static UIDynamicSlider SetupSliderFloat(out JSONStorableFloat storable, string label, float defaultValue, float minValue, float maxValue, bool rightSide, bool registerStorable = true)
+    public static UIDynamicSlider CreateSliderFloat(out JSONStorableFloat storable, string label, float defaultValue, float minValue, float maxValue, bool rightSide, bool registerStorable = true)
     {
       storable = new JSONStorableFloat(label, defaultValue, minValue, maxValue, true, true);
       storable.storeType = JSONStorableParam.StoreType.Full;
@@ -80,7 +82,7 @@ namespace MacGruber
     }
 
     // Create VaM-UI Float slider
-    public static UIDynamicSlider SetupSliderFloatWithRange(out JSONStorableFloat storable, string label, float defaultValue, float minValue, float maxValue, bool rightSide, bool registerStorable = true)
+    public static UIDynamicSlider CreateSliderFloatWithRange(out JSONStorableFloat storable, string label, float defaultValue, float minValue, float maxValue, bool rightSide, bool registerStorable = true)
     {
       storable = new JSONStorableFloat(label, defaultValue, minValue, maxValue, true, true);
       storable.storeType = JSONStorableParam.StoreType.Full;
@@ -95,7 +97,20 @@ namespace MacGruber
     }
 
     // Create VaM-UI Float slider
-    public static UIDynamicSlider SetupSliderInt(out JSONStorableFloat storable, string label, int defaultValue, int minValue, int maxValue, bool rightSide, bool registerStorable = true)
+    public static UIDynamicSlider CreateSliderFloatNonInteractable(out JSONStorableFloat storable, string label, float defaultValue, float minValue, float maxValue, bool rightSide, bool registerStorable = true)
+    {
+      storable = new JSONStorableFloat(label, defaultValue, minValue, maxValue, true, false);
+      storable.storeType = JSONStorableParam.StoreType.Full;
+      UIDynamicSlider slider = script.CreateSlider(storable, rightSide);
+      if (registerStorable)
+      {
+        script.RegisterFloat(storable);
+      }
+      return slider;
+    }
+
+    // Create VaM-UI Float slider
+    public static UIDynamicSlider CreateSliderInt(out JSONStorableFloat storable, string label, float defaultValue, float minValue, float maxValue, bool rightSide, bool registerStorable = true)
     {
       storable = new JSONStorableFloat(label, defaultValue, minValue, maxValue, true, true);
       storable.storeType = JSONStorableParam.StoreType.Full;
@@ -110,7 +125,7 @@ namespace MacGruber
     }
 
     // Create VaM-UI ColorPicker
-    public static UIDynamicColorPicker SetupColor(out JSONStorableColor storable, string label, Color color, bool rightSide, bool registerStorable = true)
+    public static UIDynamicColorPicker CreateColor(out JSONStorableColor storable, string label, Color color, bool rightSide, bool registerStorable = true)
     {
       HSVColor hsvColor = HSVColorPicker.RGBToHSV(color.r, color.g, color.b);
       storable = new JSONStorableColor(label, hsvColor);
@@ -124,7 +139,7 @@ namespace MacGruber
     }
 
     // Create VaM-UI StringChooser
-    public static UIDynamicPopup SetupStringChooser(out JSONStorableStringChooser storable, string label, List<string> entries, bool rightSide, bool registerStorable = true)
+    public static UIDynamicPopup CreateStringChooser(out JSONStorableStringChooser storable, string label, List<string> entries, bool rightSide, bool registerStorable = true)
     {
       string defaultEntry = entries.Count > 0 ? entries[0] : "";
       storable = new JSONStorableStringChooser(label, entries, defaultEntry, label);
@@ -137,7 +152,7 @@ namespace MacGruber
     }
 
     // Create VaM-UI StringChooser
-    public static UIDynamicPopup SetupStringChooser(out JSONStorableStringChooser storable, string label, List<string> entries, int defaultIndex, bool rightSide, bool registerStorable = true)
+    public static UIDynamicPopup CreateStringChooser(out JSONStorableStringChooser storable, string label, List<string> entries, int defaultIndex, bool rightSide, bool registerStorable = true)
     {
       string defaultEntry = (defaultIndex >= 0 && defaultIndex < entries.Count) ? entries[defaultIndex] : "";
       storable = new JSONStorableStringChooser(label, entries, defaultEntry, label);
@@ -150,7 +165,7 @@ namespace MacGruber
     }
 
     // Create VaM-UI StringChooser for Enum
-    public static UIDynamicPopup SetupEnumChooser<TEnum>(out JSONStorableStringChooser storable, string label, TEnum defaultValue, bool rightSide, EnumSetCallback<TEnum> callback, bool registerStorable = true)
+    public static UIDynamicPopup CreateEnumChooser<TEnum>(out JSONStorableStringChooser storable, string label, TEnum defaultValue, bool rightSide, EnumSetCallback<TEnum> callback, bool registerStorable = true)
       where TEnum : struct, IComparable, IConvertible, IFormattable
     {
       List<string> names = Enum.GetNames(typeof(TEnum)).ToList();
@@ -169,7 +184,7 @@ namespace MacGruber
     }
 
     // Create VaM-UI TextureChooser. Note that you are responsible for destroying the texture when you don't need it anymore.
-    public static void SetupTexture2DChooser(out JSONStorableUrl storable, string label, string defaultValue, bool rightSide, TextureSettings settings, TextureSetCallback callback, bool registerStorable = true)
+    public static void CreateTexture2DChooser(out JSONStorableUrl storable, string label, string defaultValue, bool rightSide, TextureSettings settings, TextureSetCallback callback, bool registerStorable = true)
     {
       storable = new JSONStorableUrl(label, string.Empty, (string url) => { QueueLoadTexture(url, settings, callback); }, "jpg|png|tif|tiff");
       if (registerStorable)
@@ -190,7 +205,7 @@ namespace MacGruber
     }
 
     // Create VaM-UI AssetBundleChooser.
-    public static void SetupAssetBundleChooser(out JSONStorableUrl storable, string label, string defaultValue, bool rightSide, string fileExtensions, bool registerStorable = true)
+    public static void CreateAssetBundleChooser(out JSONStorableUrl storable, string label, string defaultValue, bool rightSide, string fileExtensions, bool registerStorable = true)
     {
       storable = new JSONStorableUrl(label, defaultValue, fileExtensions);
       if (registerStorable)
@@ -211,7 +226,7 @@ namespace MacGruber
     }
 
     // Create VaM-UI InfoText field
-    public static UIDynamicTextField SetupInfoText(string text, float height, bool rightSide)
+    public static UIDynamicTextField CreateInfoText(string text, float height, bool rightSide)
     {
       JSONStorableString storable = new JSONStorableString("Info", text);
       UIDynamicTextField textfield = script.CreateTextField(storable, rightSide);
@@ -219,7 +234,7 @@ namespace MacGruber
       return textfield;
     }
 
-    public static UIDynamic SetupSpacer(float height, bool rightSide)
+    public static UIDynamic CreateSpacer(float height, bool rightSide)
     {
       UIDynamic spacer = script.CreateSpacer(rightSide);
       spacer.height = height;
@@ -227,7 +242,7 @@ namespace MacGruber
     }
 
     // Create VaM-UI button
-    public static UIDynamicButton SetupButton(string label, UnityAction callback, bool rightSide)
+    public static UIDynamicButton CreateButton(string label, UnityAction callback, bool rightSide)
     {
       UIDynamicButton button = script.CreateButton(label, rightSide);
       button.button.onClick.AddListener(callback);
@@ -235,7 +250,7 @@ namespace MacGruber
     }
 
     // Create input action trigger
-    public static void SetupAction(out JSONStorableAction action, string name, JSONStorableAction.ActionCallback callback)
+    public static void CreateAction(out JSONStorableAction action, string name, JSONStorableAction.ActionCallback callback)
     {
       action = new JSONStorableAction(name, callback);
       script.RegisterAction(action);
@@ -245,7 +260,7 @@ namespace MacGruber
     // Custom UI system with new UI elements and the ability to easily add/remove UI at runtime
 
     // Create one-line text input with label
-    public static UIDynamicLabelInput SetupTextInput(out JSONStorableString storable, string label, string defaultValue, bool rightSide)
+    public static UIDynamicLabelInput CreateTextInput(out JSONStorableString storable, string label, string defaultValue, bool rightSide)
     {
       storable = new JSONStorableString(label, defaultValue);
       if (ourLabelWithInputPrefab == null)
@@ -320,7 +335,7 @@ namespace MacGruber
     }
 
     // Create label that as an X button on the right side.
-    public static UIDynamicLabelXButton SetupLabelXButton(string label, UnityAction callback, bool rightSide)
+    public static UIDynamicLabelXButton CreateLabelXButton(string label, UnityAction callback, bool rightSide)
     {
       if (ourLabelWithXButtonPrefab == null)
       {
@@ -382,7 +397,7 @@ namespace MacGruber
       }
     }
 
-    public static UIDynamicTextInfo SetupInfoTextNoScroll(string text, float height, bool rightSide)
+    public static UIDynamicTextInfo CreateInfoTextNoScroll(string text, float height, bool rightSide)
     {
       if (ourTextInfoPrefab == null)
       {
@@ -435,14 +450,14 @@ namespace MacGruber
       }
     }
 
-    public static UIDynamicTextInfo SetupInfoOneLine(string text, bool rightSide)
+    public static UIDynamicTextInfo CreateInfoOneLine(string text, bool rightSide)
     {
-      UIDynamicTextInfo uid = SetupInfoTextNoScroll(text, 35, rightSide);
+      UIDynamicTextInfo uid = CreateInfoTextNoScroll(text, 35, rightSide);
       uid.background.offsetMin = new Vector2(0, 0);
       return uid;
     }
 
-    public static UIDynamicTwinButton SetupTwinButton(string leftLabel, UnityAction leftCallback, string rightLabel, UnityAction rightCallback, bool rightSide)
+    public static UIDynamicTwinButton CreateTwinButton(string leftLabel, UnityAction leftCallback, string rightLabel, UnityAction rightCallback, bool rightSide)
     {
       if (ourTwinButtonPrefab == null)
       {
@@ -599,6 +614,13 @@ namespace MacGruber
         go = null;
       }
     }
+
+    private static MVRScript script;
+    private static CreateUIElement ourCreateUIElement;
+    private static GameObject ourLabelWithInputPrefab;
+    private static GameObject ourLabelWithXButtonPrefab;
+    private static GameObject ourTextInfoPrefab;
+    private static GameObject ourTwinButtonPrefab;
   }
 
   // ===========================================================================================
