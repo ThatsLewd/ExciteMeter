@@ -69,7 +69,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Compile Include="source/lib/MacGruber_Utils.cs" />
+    <Compile Include="source/lib/VaMUtils.cs" />
     <Compile Include="source/ExciteMeter.cs" />
   </ItemGroup>
 

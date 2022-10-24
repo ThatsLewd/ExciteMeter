@@ -1,13 +1,11 @@
 ﻿/* /////////////////////////////////////////////////////////////////////////////////////////////////
-Utils 2021-03-13 by MacGruber
+Original utils 2021-03-13 by MacGruber
 Collection of various utility functions.
 https://www.patreon.com/MacGruber_Laboratory
 
 Licensed under CC BY-SA after EarlyAccess ended. (see https://creativecommons.org/licenses/by-sa/4.0/)
 
-Minor modifications by ThatsLewd 2022-03-02
-More modifications by ThatsLewd 2022-10-22
-
+Refactored, expanded 2022-10-24 by ThatsLewd
 ///////////////////////////////////////////////////////////////////////////////////////////////// */
 
 using UnityEngine;
@@ -22,25 +20,36 @@ using Request = MeshVR.AssetLoader.AssetBundleFromFileRequest;
 using AssetBundles;
 using SimpleJSON;
 
-namespace MacGruber
+namespace VaMUtils
 {
-  // ===========================================================================================
-  // ====== UI UTILS ====== //
-  // Usage instructions:
-  // - Before using the custom UI elements, call from your MVRScript:
-  //       UIBuilder.Init(this, CreateUIElement);
-  // - When your MVRScript receives the OnDestroy message call:
-  //       UIBuilder.Destroy();
-  public class UIBuilder
+  // ================================================================================================== //
+  // ========================================== ENUMS/CONSTS ========================================== //
+  // ================================================================================================== //
+  public static class UIColor
   {
-    public static class UIColor
-    {
-      public readonly static Color GREEN = new Color(0.5f, 1.0f, 0.5f);
-      public readonly static Color RED = new Color(1.0f, 0.5f, 0.5f);
-      public readonly static Color YELLOW = new Color(1.0f, 1.0f, 0.5f);
-      public readonly static Color BLUE = new Color(0.5f, 0.5f, 1.0f);
-    }
+    public readonly static Color GREEN = new Color(0.5f, 1.0f, 0.5f);
+    public readonly static Color RED = new Color(1.0f, 0.5f, 0.5f);
+    public readonly static Color BLUE = new Color(0.5f, 0.5f, 1.0f);
+    public readonly static Color YELLOW = new Color(1.0f, 1.0f, 0.5f);
+  }
 
+  public enum UIColumn
+  {
+    LEFT,
+    RIGHT,
+  }
+
+  // ============================================================================================== //
+  // ========================================== UI UTILS ========================================== //
+  // ============================================================================================== //
+  // Usage:
+  // - In script Init(), call:
+  //       UIBuilder.Init(this, CreateUIElement);
+  // - In script OnDestroy(), call:
+  //       UIBuilder.Destroy();
+
+  public static class UIBuilder
+  {
     public static void Init(MVRScript script, CreateUIElement createUIElementCallback)
     {
       UIBuilder.script = script;
@@ -49,218 +58,160 @@ namespace MacGruber
 
     public static void Destroy()
     {
-      SafeDestroy(ref ourLabelWithInputPrefab);
-      SafeDestroy(ref ourLabelWithXButtonPrefab);
-      SafeDestroy(ref ourTextInfoPrefab);
-      SafeDestroy(ref ourTwinButtonPrefab);
+      Utils.SafeDestroy(ref ourLabelWithInputPrefab);
+      Utils.SafeDestroy(ref ourLabelWithXButtonPrefab);
+      Utils.SafeDestroy(ref ourTextInfoPrefab);
+      Utils.SafeDestroy(ref ourTwinButtonPrefab);
     }
 
     // Create VaM-UI Toggle button
-    public static UIDynamicToggle CreateToggle(out JSONStorableBool storable, string label, bool defaultValue, bool rightSide, bool registerStorable = true)
+    public static UIDynamicToggle CreateToggle(out JSONStorableBool storable, UIColumn side, string label, bool defaultValue, bool register = true)
     {
       storable = new JSONStorableBool(label, defaultValue);
-      storable.storeType = JSONStorableParam.StoreType.Full;
-      UIDynamicToggle toggle = script.CreateToggle(storable, rightSide);
-      if (registerStorable)
+      if (register)
       {
+        storable.storeType = JSONStorableParam.StoreType.Full;
         script.RegisterBool(storable);
       }
+      UIDynamicToggle toggle = script.CreateToggle(storable, side == UIColumn.RIGHT);
       return toggle;
     }
 
-    // Create VaM-UI Float slider
-    public static UIDynamicSlider CreateSliderFloat(out JSONStorableFloat storable, string label, float defaultValue, float minValue, float maxValue, bool rightSide, bool registerStorable = true)
+    // Create VaM-UI Float slider (hint: use c# named parameters for optional arguments)
+    public static UIDynamicSlider CreateSlider(out JSONStorableFloat storable, UIColumn side, string label, float defaultValue, float minValue, float maxValue, bool fixedRange = false, bool integer = false, bool interactable = true, bool register = true)
     {
-      storable = new JSONStorableFloat(label, defaultValue, minValue, maxValue, true, true);
-      storable.storeType = JSONStorableParam.StoreType.Full;
-      UIDynamicSlider slider = script.CreateSlider(storable, rightSide);
-      if (registerStorable)
+      storable = new JSONStorableFloat(label, defaultValue, minValue, maxValue, fixedRange, !interactable);
+      if (register)
       {
+        storable.storeType = JSONStorableParam.StoreType.Full;
         script.RegisterFloat(storable);
       }
-      return slider;
-    }
-
-    // Create VaM-UI Float slider
-    public static UIDynamicSlider CreateSliderFloatWithRange(out JSONStorableFloat storable, string label, float defaultValue, float minValue, float maxValue, bool rightSide, bool registerStorable = true)
-    {
-      storable = new JSONStorableFloat(label, defaultValue, minValue, maxValue, true, true);
-      storable.storeType = JSONStorableParam.StoreType.Full;
-      storable.constrained = false;
-      UIDynamicSlider slider = script.CreateSlider(storable, rightSide);
-      slider.rangeAdjustEnabled = true;
-      if (registerStorable)
+      UIDynamicSlider slider = script.CreateSlider(storable, side == UIColumn.RIGHT);
+      slider.rangeAdjustEnabled = !fixedRange;
+      if (integer)
       {
-        script.RegisterFloat(storable);
-      }
-      return slider;
-    }
-
-    // Create VaM-UI Float slider
-    public static UIDynamicSlider CreateSliderFloatNonInteractable(out JSONStorableFloat storable, string label, float defaultValue, float minValue, float maxValue, bool rightSide, bool registerStorable = true)
-    {
-      storable = new JSONStorableFloat(label, defaultValue, minValue, maxValue, true, false);
-      storable.storeType = JSONStorableParam.StoreType.Full;
-      UIDynamicSlider slider = script.CreateSlider(storable, rightSide);
-      if (registerStorable)
-      {
-        script.RegisterFloat(storable);
-      }
-      return slider;
-    }
-
-    // Create VaM-UI Float slider
-    public static UIDynamicSlider CreateSliderInt(out JSONStorableFloat storable, string label, float defaultValue, float minValue, float maxValue, bool rightSide, bool registerStorable = true)
-    {
-      storable = new JSONStorableFloat(label, defaultValue, minValue, maxValue, true, true);
-      storable.storeType = JSONStorableParam.StoreType.Full;
-      UIDynamicSlider slider = script.CreateSlider(storable, rightSide);
-      slider.slider.wholeNumbers = true;
-      slider.valueFormat = "F0";
-      if (registerStorable)
-      {
-        script.RegisterFloat(storable);
-      }
-      return slider;
-    }
-
-    // Create VaM-UI Float slider
-    public static UIDynamicSlider CreateSliderIntWithRange(out JSONStorableFloat storable, string label, float defaultValue, float minValue, float maxValue, bool rightSide, bool registerStorable = true)
-    {
-      storable = new JSONStorableFloat(label, defaultValue, minValue, maxValue, true, true);
-      storable.storeType = JSONStorableParam.StoreType.Full;
-      storable.constrained = false;
-      UIDynamicSlider slider = script.CreateSlider(storable, rightSide);
-      slider.slider.wholeNumbers = true;
-      slider.valueFormat = "F0";
-      if (registerStorable)
-      {
-        script.RegisterFloat(storable);
+        slider.slider.wholeNumbers = true;
+        slider.valueFormat = "F0";
       }
       return slider;
     }
 
     // Create VaM-UI ColorPicker
-    public static UIDynamicColorPicker CreateColor(out JSONStorableColor storable, string label, Color color, bool rightSide, bool registerStorable = true)
+    public static UIDynamicColorPicker CreateColor(out JSONStorableColor storable, UIColumn side, string label, Color defaultValue, bool register = true)
     {
-      HSVColor hsvColor = HSVColorPicker.RGBToHSV(color.r, color.g, color.b);
+      HSVColor hsvColor = HSVColorPicker.RGBToHSV(defaultValue.r, defaultValue.g, defaultValue.b);
       storable = new JSONStorableColor(label, hsvColor);
-      storable.storeType = JSONStorableParam.StoreType.Full;
-      UIDynamicColorPicker picker = script.CreateColorPicker(storable, rightSide);
-      if (registerStorable)
+      if (register)
       {
+        storable.storeType = JSONStorableParam.StoreType.Full;
         script.RegisterColor(storable);
       }
+      UIDynamicColorPicker picker = script.CreateColorPicker(storable, side == UIColumn.RIGHT);
       return picker;
     }
 
     // Create VaM-UI StringChooser
-    public static UIDynamicPopup CreateStringChooser(out JSONStorableStringChooser storable, string label, List<string> entries, bool rightSide, bool registerStorable = true)
-    {
-      string defaultEntry = entries.Count > 0 ? entries[0] : "";
-      storable = new JSONStorableStringChooser(label, entries, defaultEntry, label);
-      UIDynamicPopup popup = script.CreateScrollablePopup(storable, rightSide);
-      if (registerStorable)
-      {
-        script.RegisterStringChooser(storable);
-      }
-      return popup;
-    }
-
-    // Create VaM-UI StringChooser
-    public static UIDynamicPopup CreateStringChooser(out JSONStorableStringChooser storable, string label, List<string> entries, int defaultIndex, bool rightSide, bool registerStorable = true)
+    public static UIDynamicPopup CreateStringChooser(out JSONStorableStringChooser storable, UIColumn side, string label, List<string> entries, int defaultIndex = 0, bool register = true)
     {
       string defaultEntry = (defaultIndex >= 0 && defaultIndex < entries.Count) ? entries[defaultIndex] : "";
       storable = new JSONStorableStringChooser(label, entries, defaultEntry, label);
-      UIDynamicPopup popup = script.CreateScrollablePopup(storable, rightSide);
-      if (registerStorable)
+      if (register)
       {
+        storable.storeType = JSONStorableParam.StoreType.Full;
         script.RegisterStringChooser(storable);
       }
+      UIDynamicPopup popup = script.CreateScrollablePopup(storable, side == UIColumn.RIGHT);
       return popup;
     }
 
     // Create VaM-UI StringChooser for Enum
-    public static UIDynamicPopup CreateEnumChooser<TEnum>(out JSONStorableStringChooser storable, string label, TEnum defaultValue, bool rightSide, EnumSetCallback<TEnum> callback, bool registerStorable = true)
+    public static UIDynamicPopup CreateEnumChooser<TEnum>(out JSONStorableStringChooser storable, UIColumn side, string label, TEnum defaultValue, EnumSetCallback<TEnum> callback, bool register = true)
       where TEnum : struct, IComparable, IConvertible, IFormattable
     {
       List<string> names = Enum.GetNames(typeof(TEnum)).ToList();
       storable = new JSONStorableStringChooser(label, names, defaultValue.ToString(), label);
+      if (register)
+      {
+        storable.storeType = JSONStorableParam.StoreType.Full;
+        script.RegisterStringChooser(storable);
+      }
       storable.setCallbackFunction += (string name) =>
       {
         TEnum v = (TEnum)Enum.Parse(typeof(TEnum), name);
         callback(v);
       };
-      UIDynamicPopup popup = script.CreateScrollablePopup(storable, rightSide);
-      if (registerStorable)
-      {
-        script.RegisterStringChooser(storable);
-      }
+      UIDynamicPopup popup = script.CreateScrollablePopup(storable, side == UIColumn.RIGHT);
       return popup;
     }
 
     // Create VaM-UI TextureChooser. Note that you are responsible for destroying the texture when you don't need it anymore.
-    public static void CreateTexture2DChooser(out JSONStorableUrl storable, string label, string defaultValue, bool rightSide, TextureSettings settings, TextureSetCallback callback, bool registerStorable = true)
+    public static void CreateTexture2DChooser(out JSONStorableUrl storable, UIColumn side, string label, string defaultValue, TextureSettings settings, TextureSetCallback callback, bool register = true)
     {
       storable = new JSONStorableUrl(label, string.Empty, (string url) => { QueueLoadTexture(url, settings, callback); }, "jpg|png|tif|tiff");
-      if (registerStorable)
+      if (register)
       {
+        storable.storeType = JSONStorableParam.StoreType.Full;
         script.RegisterUrl(storable);
       }
-      UIDynamicButton button = script.CreateButton("Browse " + label, false);
-      UIDynamicTextField textfield = script.CreateTextField(storable, false);
+      if (!string.IsNullOrEmpty(defaultValue))
+      {
+        storable.SetFilePath(defaultValue);
+      }
+      UIDynamicButton button = script.CreateButton("Browse " + label, side == UIColumn.RIGHT);
+      UIDynamicTextField textfield = script.CreateTextField(storable, side == UIColumn.RIGHT);
       textfield.UItext.alignment = TextAnchor.MiddleRight;
       textfield.UItext.horizontalOverflow = HorizontalWrapMode.Overflow;
       textfield.UItext.verticalOverflow = VerticalWrapMode.Truncate;
       LayoutElement layout = textfield.GetComponent<LayoutElement>();
       layout.preferredHeight = layout.minHeight = 35;
       textfield.height = 35;
-      if (!string.IsNullOrEmpty(defaultValue))
-        storable.SetFilePath(defaultValue);
       storable.RegisterFileBrowseButton(button.button);
     }
 
     // Create VaM-UI AssetBundleChooser.
-    public static void CreateAssetBundleChooser(out JSONStorableUrl storable, string label, string defaultValue, bool rightSide, string fileExtensions, bool registerStorable = true)
+    public static void CreateAssetBundleChooser(out JSONStorableUrl storable, UIColumn side, string label, string defaultValue, string fileExtensions, bool register = true)
     {
       storable = new JSONStorableUrl(label, defaultValue, fileExtensions);
-      if (registerStorable)
+      if (register)
       {
+        storable.storeType = JSONStorableParam.StoreType.Full;
         script.RegisterUrl(storable);
       }
-      UIDynamicButton button = script.CreateButton("Select " + label, false);
-      UIDynamicTextField textfield = script.CreateTextField(storable, false);
+      if (!string.IsNullOrEmpty(defaultValue))
+      {
+        storable.SetFilePath(defaultValue);
+      }
+      UIDynamicButton button = script.CreateButton("Select " + label, side == UIColumn.RIGHT);
+      UIDynamicTextField textfield = script.CreateTextField(storable, side == UIColumn.RIGHT);
       textfield.UItext.alignment = TextAnchor.MiddleRight;
       textfield.UItext.horizontalOverflow = HorizontalWrapMode.Overflow;
       textfield.UItext.verticalOverflow = VerticalWrapMode.Truncate;
       LayoutElement layout = textfield.GetComponent<LayoutElement>();
       layout.preferredHeight = layout.minHeight = 35;
       textfield.height = 35;
-      if (!string.IsNullOrEmpty(defaultValue))
-        storable.SetFilePath(defaultValue);
       storable.RegisterFileBrowseButton(button.button);
     }
 
     // Create VaM-UI InfoText field
-    public static UIDynamicTextField CreateInfoText(string text, float height, bool rightSide)
+    public static UIDynamicTextField CreateInfoText(UIColumn side, string text, float height)
     {
       JSONStorableString storable = new JSONStorableString("Info", text);
-      UIDynamicTextField textfield = script.CreateTextField(storable, rightSide);
+      UIDynamicTextField textfield = script.CreateTextField(storable, side == UIColumn.RIGHT);
       textfield.height = height;
       return textfield;
     }
 
-    public static UIDynamic CreateSpacer(float height, bool rightSide)
+    public static UIDynamic CreateSpacer(UIColumn side, float height = 20f)
     {
-      UIDynamic spacer = script.CreateSpacer(rightSide);
+      UIDynamic spacer = script.CreateSpacer(side == UIColumn.RIGHT);
       spacer.height = height;
       return spacer;
     }
 
     // Create VaM-UI button
-    public static UIDynamicButton CreateButton(string label, UnityAction callback, bool rightSide)
+    public static UIDynamicButton CreateButton(UIColumn side, string label, UnityAction callback)
     {
-      UIDynamicButton button = script.CreateButton(label, rightSide);
+      UIDynamicButton button = script.CreateButton(label, side == UIColumn.RIGHT);
       button.button.onClick.AddListener(callback);
       return button;
     }
@@ -272,13 +223,9 @@ namespace MacGruber
       script.RegisterAction(action);
     }
 
-    // ===========================================================================================
-    // Custom UI system with new UI elements and the ability to easily add/remove UI at runtime
-
     // Create one-line text input with label
-    public static UIDynamicLabelInput CreateTextInput(out JSONStorableString storable, string label, string defaultValue, bool rightSide)
+    public static UIDynamicLabelInput CreateTextInput(out JSONStorableString storable, UIColumn side, string label, string defaultValue, bool register = false)
     {
-      storable = new JSONStorableString(label, defaultValue);
       if (ourLabelWithInputPrefab == null)
       {
         ourLabelWithInputPrefab = new GameObject("LabelInput");
@@ -341,7 +288,13 @@ namespace MacGruber
       }
 
       {
-        Transform t = ourCreateUIElement(ourLabelWithInputPrefab.transform, rightSide);
+        storable = new JSONStorableString(label, defaultValue);
+        if (register)
+        {
+          storable.storeType = JSONStorableParam.StoreType.Full;
+          script.RegisterString(storable);
+        }
+        Transform t = ourCreateUIElement(ourLabelWithInputPrefab.transform, side == UIColumn.RIGHT);
         UIDynamicLabelInput uid = t.gameObject.GetComponent<UIDynamicLabelInput>();
         storable.inputField = uid.input;
         uid.label.text = label;
@@ -351,7 +304,7 @@ namespace MacGruber
     }
 
     // Create label that as an X button on the right side.
-    public static UIDynamicLabelXButton CreateLabelXButton(string label, UnityAction callback, bool rightSide)
+    public static UIDynamicLabelXButton CreateLabelXButton(UIColumn side, string label, UnityAction callback)
     {
       if (ourLabelWithXButtonPrefab == null)
       {
@@ -404,7 +357,7 @@ namespace MacGruber
       }
 
       {
-        Transform t = ourCreateUIElement(ourLabelWithXButtonPrefab.transform, rightSide);
+        Transform t = ourCreateUIElement(ourLabelWithXButtonPrefab.transform, side == UIColumn.RIGHT);
         UIDynamicLabelXButton uid = t.gameObject.GetComponent<UIDynamicLabelXButton>();
         uid.label.text = label;
         uid.button.onClick.AddListener(callback);
@@ -413,7 +366,7 @@ namespace MacGruber
       }
     }
 
-    public static UIDynamicTextInfo CreateInfoTextNoScroll(string text, float height, bool rightSide)
+    public static UIDynamicTextInfo CreateInfoTextNoScroll(UIColumn side, string text, float height)
     {
       if (ourTextInfoPrefab == null)
       {
@@ -456,7 +409,7 @@ namespace MacGruber
       }
 
       {
-        Transform t = ourCreateUIElement(ourTextInfoPrefab.transform, rightSide);
+        Transform t = ourCreateUIElement(ourTextInfoPrefab.transform, side == UIColumn.RIGHT);
         UIDynamicTextInfo uid = t.gameObject.GetComponent<UIDynamicTextInfo>();
         uid.text.text = text;
         uid.layout.minHeight = height;
@@ -466,14 +419,14 @@ namespace MacGruber
       }
     }
 
-    public static UIDynamicTextInfo CreateInfoOneLine(string text, bool rightSide)
+    public static UIDynamicTextInfo CreateInfoOneLine(UIColumn side, string text)
     {
-      UIDynamicTextInfo uid = CreateInfoTextNoScroll(text, 35, rightSide);
+      UIDynamicTextInfo uid = CreateInfoTextNoScroll(side, text, 35);
       uid.background.offsetMin = new Vector2(0, 0);
       return uid;
     }
 
-    public static UIDynamicTwinButton CreateTwinButton(string leftLabel, UnityAction leftCallback, string rightLabel, UnityAction rightCallback, bool rightSide)
+    public static UIDynamicTwinButton CreateTwinButton(UIColumn side, string leftLabel, UnityAction leftCallback, string rightLabel, UnityAction rightCallback)
     {
       if (ourTwinButtonPrefab == null)
       {
@@ -518,7 +471,7 @@ namespace MacGruber
       }
 
       {
-        Transform t = ourCreateUIElement(ourTwinButtonPrefab.transform, rightSide);
+        Transform t = ourCreateUIElement(ourTwinButtonPrefab.transform, side == UIColumn.RIGHT);
         UIDynamicTwinButton uid = t.GetComponent<UIDynamicTwinButton>();
         uid.labelLeft.text = leftLabel;
         uid.labelRight.text = rightLabel;
@@ -530,7 +483,7 @@ namespace MacGruber
     }
 
     // Call to remove a list of UI elements before rebuilding your UI.
-    public static void RemoveUIElements(List<object> menuElements)
+    public static void RemoveUIElements(ref List<object> menuElements)
     {
       for (int i = 0; i < menuElements.Count; ++i)
       {
@@ -622,15 +575,6 @@ namespace MacGruber
       ImageLoaderThreaded.singleton.QueueImage(queuedImage);
     }
 
-    private static void SafeDestroy(ref GameObject go)
-    {
-      if (go != null)
-      {
-        UnityEngine.Object.Destroy(go);
-        go = null;
-      }
-    }
-
     private static MVRScript script;
     private static CreateUIElement ourCreateUIElement;
     private static GameObject ourLabelWithInputPrefab;
@@ -639,8 +583,307 @@ namespace MacGruber
     private static GameObject ourTwinButtonPrefab;
   }
 
-  // ===========================================================================================
-  // ====== GENERAL UTILS ====== //
+  // =================================================================================================== //
+  // ========================================== TRIGGER UTILS ========================================== //
+  // =================================================================================================== //
+  // Usage:
+  // - In script Init(), call:
+  //       TriggerUtil.Init(this);
+  // - In script OnDestroy(), call:
+  //       TriggerUtil.Destroy();
+  //
+  // Credit to AcidBubbles for figuring out how to do custom triggers.
+
+  public static class TriggerUtil
+  {
+    public static bool Loaded { get; private set; }
+
+    public static void Init(MVRScript script)
+    {
+      TriggerUtil.script = script;
+      handler = new SimpleTriggerHandler();
+      SuperController.singleton.StartCoroutine(LoadAssets());
+    }
+
+    public static void Destroy()
+    {
+      // nothing for now
+    }
+
+    // Create a trigger
+    public static T Create<T>(string name, string secondaryName = null) where T : CustomTrigger, new()
+    {
+      T trigger = new T();
+      trigger.Initialize(script, handler, name, secondaryName);
+      return trigger;
+    }
+
+    // Clone a trigger
+    public static T Clone<T>(T other) where T : CustomTrigger, new()
+    {
+      T trigger = new T();
+      trigger.Initialize(other);
+      return trigger;
+    }
+
+    // Restore an existing trigger from JSON
+    // These restore methods are a little clunky because of the way triggers are stored
+    public static void RestoreFromJSON<T>(ref T trigger, JSONClass jc, bool setMissingToDefault) where T : CustomTrigger, new()
+    {
+      trigger.RestoreFromJSON(jc, script.subScenePrefix, script.mergeRestore, setMissingToDefault);
+    }
+
+    // Restore a trigger from JSON by name
+    // These restore methods are a little clunky because of the way triggers are stored
+    public static void RestoreFromJSON<T>(out T trigger, string name, JSONClass jc, bool setMissingToDefault) where T : CustomTrigger, new()
+    {
+      trigger = new T();
+      trigger.Initialize(script, handler, name);
+      trigger.RestoreFromJSON(jc, script.subScenePrefix, script.mergeRestore, setMissingToDefault);
+    }
+
+    private static IEnumerator LoadAssets()
+    {
+      foreach (var x in LoadAsset("z_ui2", "TriggerActionsPanel", p => ourTriggerActionsPrefab = p))
+        yield return x;
+      foreach (var x in LoadAsset("z_ui2", "TriggerActionMiniPanel", p => ourTriggerActionMiniPrefab = p))
+        yield return x;
+      foreach (var x in LoadAsset("z_ui2", "TriggerActionDiscretePanel", p => ourTriggerActionDiscretePrefab = p))
+        yield return x;
+      foreach (var x in LoadAsset("z_ui2", "TriggerActionTransitionPanel", p => ourTriggerActionTransitionPrefab = p))
+        yield return x;
+
+      Loaded = true;
+    }
+
+    private static IEnumerable LoadAsset(string assetBundleName, string assetName, Action<RectTransform> assign)
+    {
+      AssetBundleLoadAssetOperation request = AssetBundleManager.LoadAssetAsync(assetBundleName, assetName, typeof(GameObject));
+      if (request == null)
+        throw new NullReferenceException($"Request for {assetName} in {assetBundleName} assetbundle failed: Null request.");
+      yield return request;
+      GameObject go = request.GetAsset<GameObject>();
+      if (go == null)
+        throw new NullReferenceException($"Request for {assetName} in {assetBundleName} assetbundle failed: Null GameObject.");
+      RectTransform prefab = go.GetComponent<RectTransform>();
+      if (prefab == null)
+        throw new NullReferenceException($"Request for {assetName} in {assetBundleName} assetbundle failed: Null RectTansform.");
+      assign(prefab);
+    }
+
+    private static MVRScript script;
+    private static SimpleTriggerHandler handler;
+    private static RectTransform ourTriggerActionsPrefab;
+    private static RectTransform ourTriggerActionMiniPrefab;
+    private static RectTransform ourTriggerActionDiscretePrefab;
+    private static RectTransform ourTriggerActionTransitionPrefab;
+
+    // Helper class since we need a non-static handler
+    private class SimpleTriggerHandler : TriggerHandler
+    {
+      void TriggerHandler.RemoveTrigger(Trigger t)
+      {
+        // unused
+      }
+
+      void TriggerHandler.DuplicateTrigger(Trigger t)
+      {
+        // unused
+      }
+
+      RectTransform TriggerHandler.CreateTriggerActionsUI()
+      {
+        return UnityEngine.Object.Instantiate(ourTriggerActionsPrefab);
+      }
+
+      RectTransform TriggerHandler.CreateTriggerActionMiniUI()
+      {
+        return UnityEngine.Object.Instantiate(ourTriggerActionMiniPrefab);
+      }
+
+      RectTransform TriggerHandler.CreateTriggerActionDiscreteUI()
+      {
+        return UnityEngine.Object.Instantiate(ourTriggerActionDiscretePrefab);
+      }
+
+      RectTransform TriggerHandler.CreateTriggerActionTransitionUI()
+      {
+        RectTransform rt = UnityEngine.Object.Instantiate(ourTriggerActionTransitionPrefab);
+        rt.GetComponent<TriggerActionTransitionUI>().startWithCurrentValToggle.gameObject.SetActive(false);
+        return rt;
+      }
+
+      void TriggerHandler.RemoveTriggerActionUI(RectTransform rt)
+      {
+        UnityEngine.Object.Destroy(rt?.gameObject);
+      }
+    }
+  }
+
+  // ============================================================================================================ //
+  // ========================================== TRIGGER HELPER CLASSES ========================================== //
+  // ============================================================================================================ //
+  // You shouldn't need to instantiate these directly -- use TriggerUtil.Create()
+
+  // Base class for easier handling of custom triggers.
+  public abstract class CustomTrigger : Trigger
+  {
+    private string _name;
+    public string name
+    {
+      get { return _name; }
+      set { _name = value; rebuildPanel = true; }
+    }
+
+    private string _secondaryName;
+    public string secondaryName
+    {
+      get { return _secondaryName; }
+      set { _secondaryName = value; rebuildPanel = true; }
+    }
+
+    private MVRScript script;
+    private bool initialized = false;
+    private bool rebuildPanel = true;
+
+    public CustomTrigger() { }
+
+    public void Initialize(MVRScript script, TriggerHandler handler, string name, string secondaryName = null)
+    {
+      this.name = name;
+      this.secondaryName = secondaryName;
+      this.script = script;
+      base.handler = handler;
+      this.initialized = true;
+    }
+
+    public void Initialize(CustomTrigger other)
+    {
+      this.name = other.name;
+      this.secondaryName = other.secondaryName;
+      this.script = other.script;
+      base.handler = other.handler;
+      this.initialized = true;
+
+      JSONClass jc = other.GetJSON(script.subScenePrefix);
+      base.RestoreFromJSON(jc, script.subScenePrefix, false);
+    }
+
+    public void OpenPanel()
+    {
+      if (!TriggerUtil.Loaded)
+      {
+        SuperController.LogError("CustomTrigger: You need to call TriggerUtil.Init() before use.");
+        return;
+      }
+      if (!initialized)
+      {
+        SuperController.LogError("CustomTrigger: Trigger is not initialized. Use TriggerUtil.Create() to instantiate triggers.");
+        return;
+      }
+
+      triggerActionsParent = script.UITransform;
+      InitTriggerUI();
+      OpenTriggerActionsPanel();
+      if (rebuildPanel)
+      {
+        Transform panel = triggerActionsPanel.Find("Panel");
+        panel.Find("Header Text").GetComponent<Text>().text = name;
+        Transform secondaryHeader = panel.Find("Trigger Name Text");
+        secondaryHeader.gameObject.SetActive(!string.IsNullOrEmpty(secondaryName));
+        secondaryHeader.GetComponent<Text>().text = secondaryName;
+
+        InitPanel();
+        rebuildPanel = false;
+      }
+    }
+
+    protected abstract void InitPanel();
+
+    public void RestoreFromJSON(JSONClass jc, string subScenePrefix, bool isMerge, bool setMissingToDefault)
+    {
+      if (jc.HasKey(name))
+      {
+        JSONClass tc = jc[name].AsObject;
+        if (tc != null)
+          base.RestoreFromJSON(tc, subScenePrefix, isMerge);
+      }
+      else if (setMissingToDefault)
+      {
+        base.RestoreFromJSON(new JSONClass());
+      }
+    }
+  }
+
+  // Wrapper for easier handling of custom event triggers.
+  public class EventTrigger : CustomTrigger
+  {
+    public EventTrigger() : base() { }
+
+    protected override void InitPanel()
+    {
+      Transform content = triggerActionsPanel.Find("Content");
+      content.Find("Tab1/Label").GetComponent<Text>().text = "Event Actions";
+      content.Find("Tab2").gameObject.SetActive(false);
+      content.Find("Tab3").gameObject.SetActive(false);
+    }
+
+    public void Trigger()
+    {
+      active = true;
+      active = false;
+    }
+
+    public void Trigger(List<TriggerActionDiscrete> actionsNeedingUpdateOut)
+    {
+      Trigger();
+      for (int i = 0; i < discreteActionsStart.Count; ++i)
+      {
+        if (discreteActionsStart[i].timerActive)
+          actionsNeedingUpdateOut.Add(discreteActionsStart[i]);
+      }
+    }
+  }
+
+  // Wrapper for easier handling of custom float triggers.
+  public class FloatTrigger : CustomTrigger
+  {
+    public FloatTrigger() : base() { }
+
+    protected override void InitPanel()
+    {
+      Transform content = triggerActionsPanel.Find("Content");
+      content.Find("Tab2/Label").GetComponent<Text>().text = "Value Actions";
+      content.Find("Tab3/Label").GetComponent<Text>().text = "Event Actions";
+      content.Find("Tab2").GetComponent<Toggle>().isOn = true;
+      content.Find("Tab1").gameObject.SetActive(false);
+    }
+
+    public void Trigger(float v)
+    {
+      _transitionInterpValue = Mathf.Clamp01(v);
+      if (transitionInterpValueSlider != null)
+        transitionInterpValueSlider.value = _transitionInterpValue;
+      for (int i = 0; i < transitionActions.Count; ++i)
+        transitionActions[i].TriggerInterp(_transitionInterpValue, true);
+      for (int i = 0; i < discreteActionsEnd.Count; ++i)
+        discreteActionsEnd[i].Trigger();
+    }
+
+    public void Trigger(float v, List<TriggerActionDiscrete> actionsNeedingUpdateOut)
+    {
+      Trigger(v);
+      for (int i = 0; i < discreteActionsEnd.Count; ++i)
+      {
+        if (discreteActionsEnd[i].timerActive)
+          actionsNeedingUpdateOut.Add(discreteActionsEnd[i]);
+      }
+    }
+  }
+
+  // =================================================================================================== //
+  // ========================================== GENERAL UTILS ========================================== //
+  // =================================================================================================== //
   public static class Utils
   {
     // VaM Plugins can contain multiple Scripts, if you load them via a *.cslist file. This function allows you to get
@@ -725,6 +968,16 @@ namespace MacGruber
       maxSlider.valNoCallback = v;
     }
 
+    // Destroy a potentially null game object safely
+    public static void SafeDestroy(ref GameObject go)
+    {
+      if (go != null)
+      {
+        UnityEngine.Object.Destroy(go);
+        go = null;
+      }
+    }
+
     public static void LogTransform(string message, Transform t)
     {
       StringBuilder b = new StringBuilder();
@@ -790,8 +1043,9 @@ namespace MacGruber
     }
   }
 
-  // ===========================================================================================
-  // ====== HELPER TYPES ====== //
+  // ================================================================================================== //
+  // ========================================== HELPER TYPES ========================================== //
+  // ================================================================================================== //
   public delegate Transform CreateUIElement(Transform prefab, bool rightSide);
   public delegate void EnumSetCallback<TEnum>(TEnum v);
   public delegate void TextureSetCallback(Texture2D tex);
@@ -852,273 +1106,5 @@ namespace MacGruber
     public Text text;
     public LayoutElement layout;
     public RectTransform background;
-  }
-
-  // ===========================================================================================
-  // ====== TRIGGER HELPERS ====== //
-
-  // TriggerHandler implementation for easier handling of custom triggers.
-  // Essentially call this in your plugin init code:
-  //     StartCoroutine(SimpleTriggerHandler.LoadAssets());
-  //
-  // Credit to AcidBubbles for figuring out how to do custom triggers.
-  public class SimpleTriggerHandler : TriggerHandler
-  {
-    public static bool Loaded { get; private set; }
-
-    private static SimpleTriggerHandler myInstance;
-
-    private RectTransform myTriggerActionsPrefab;
-    private RectTransform myTriggerActionMiniPrefab;
-    private RectTransform myTriggerActionDiscretePrefab;
-    private RectTransform myTriggerActionTransitionPrefab;
-
-    public static SimpleTriggerHandler Instance
-    {
-      get
-      {
-        if (myInstance == null)
-          myInstance = new SimpleTriggerHandler();
-        return myInstance;
-      }
-    }
-
-    public static void LoadAssets()
-    {
-      SuperController.singleton.StartCoroutine(Instance.LoadAssetsInternal());
-    }
-
-    private IEnumerator LoadAssetsInternal()
-    {
-      foreach (var x in LoadAsset("z_ui2", "TriggerActionsPanel", p => myTriggerActionsPrefab = p))
-        yield return x;
-      foreach (var x in LoadAsset("z_ui2", "TriggerActionMiniPanel", p => myTriggerActionMiniPrefab = p))
-        yield return x;
-      foreach (var x in LoadAsset("z_ui2", "TriggerActionDiscretePanel", p => myTriggerActionDiscretePrefab = p))
-        yield return x;
-      foreach (var x in LoadAsset("z_ui2", "TriggerActionTransitionPanel", p => myTriggerActionTransitionPrefab = p))
-        yield return x;
-
-      Loaded = true;
-    }
-
-    private IEnumerable LoadAsset(string assetBundleName, string assetName, Action<RectTransform> assign)
-    {
-      AssetBundleLoadAssetOperation request = AssetBundleManager.LoadAssetAsync(assetBundleName, assetName, typeof(GameObject));
-      if (request == null)
-        throw new NullReferenceException($"Request for {assetName} in {assetBundleName} assetbundle failed: Null request.");
-      yield return request;
-      GameObject go = request.GetAsset<GameObject>();
-      if (go == null)
-        throw new NullReferenceException($"Request for {assetName} in {assetBundleName} assetbundle failed: Null GameObject.");
-      RectTransform prefab = go.GetComponent<RectTransform>();
-      if (prefab == null)
-        throw new NullReferenceException($"Request for {assetName} in {assetBundleName} assetbundle failed: Null RectTansform.");
-      assign(prefab);
-    }
-
-
-    void TriggerHandler.RemoveTrigger(Trigger t)
-    {
-      // nothing to do
-    }
-
-    void TriggerHandler.DuplicateTrigger(Trigger t)
-    {
-      throw new NotImplementedException();
-    }
-
-    RectTransform TriggerHandler.CreateTriggerActionsUI()
-    {
-      return UnityEngine.Object.Instantiate(myTriggerActionsPrefab);
-    }
-
-    RectTransform TriggerHandler.CreateTriggerActionMiniUI()
-    {
-      return UnityEngine.Object.Instantiate(myTriggerActionMiniPrefab);
-    }
-
-    RectTransform TriggerHandler.CreateTriggerActionDiscreteUI()
-    {
-      return UnityEngine.Object.Instantiate(myTriggerActionDiscretePrefab);
-    }
-
-    RectTransform TriggerHandler.CreateTriggerActionTransitionUI()
-    {
-      RectTransform rt = UnityEngine.Object.Instantiate(myTriggerActionTransitionPrefab);
-      rt.GetComponent<TriggerActionTransitionUI>().startWithCurrentValToggle.gameObject.SetActive(false);
-      return rt;
-    }
-
-    void TriggerHandler.RemoveTriggerActionUI(RectTransform rt)
-    {
-      UnityEngine.Object.Destroy(rt?.gameObject);
-    }
-  }
-
-  // Base class for easier handling of custom triggers.
-  public abstract class CustomTrigger : Trigger
-  {
-    public string Name
-    {
-      get { return name; }
-      set { name = value; myNeedInit = true; }
-    }
-
-    public string SecondaryName
-    {
-      get { return secondaryName; }
-      set { secondaryName = value; myNeedInit = true; }
-    }
-
-    public MVRScript Owner
-    {
-      get; private set;
-    }
-
-    private string name;
-    private string secondaryName;
-    private bool myNeedInit = true;
-
-    public CustomTrigger(MVRScript owner, string name, string secondary = null)
-    {
-      Name = name;
-      SecondaryName = secondary;
-      Owner = owner;
-      handler = SimpleTriggerHandler.Instance;
-    }
-
-    public CustomTrigger(CustomTrigger other)
-    {
-      Name = other.Name;
-      SecondaryName = other.SecondaryName;
-      Owner = other.Owner;
-      handler = SimpleTriggerHandler.Instance;
-
-      JSONClass jc = other.GetJSON(Owner.subScenePrefix);
-      base.RestoreFromJSON(jc, Owner.subScenePrefix, false);
-    }
-
-    public void OpenPanel()
-    {
-      if (!SimpleTriggerHandler.Loaded)
-      {
-        SuperController.LogError("CustomTrigger: You need to call SimpleTriggerHandler.LoadAssets() before use.");
-        return;
-      }
-
-      triggerActionsParent = Owner.UITransform;
-      InitTriggerUI();
-      OpenTriggerActionsPanel();
-      if (myNeedInit)
-      {
-        Transform panel = triggerActionsPanel.Find("Panel");
-        panel.Find("Header Text").GetComponent<Text>().text = Name;
-        Transform secondaryHeader = panel.Find("Trigger Name Text");
-        secondaryHeader.gameObject.SetActive(!string.IsNullOrEmpty(SecondaryName));
-        secondaryHeader.GetComponent<Text>().text = SecondaryName;
-
-        InitPanel();
-        myNeedInit = false;
-      }
-    }
-
-    protected abstract void InitPanel();
-
-    public void RestoreFromJSON(JSONClass jc, string subScenePrefix, bool isMerge, bool setMissingToDefault)
-    {
-      if (jc.HasKey(Name))
-      {
-        JSONClass tc = jc[Name].AsObject;
-        if (tc != null)
-          base.RestoreFromJSON(tc, subScenePrefix, isMerge);
-      }
-      else if (setMissingToDefault)
-      {
-        base.RestoreFromJSON(new JSONClass());
-      }
-    }
-  }
-
-  // Wrapper for easier handling of custom event triggers.
-  public class EventTrigger : CustomTrigger
-  {
-    public EventTrigger(MVRScript owner, string name, string secondary = null)
-      : base(owner, name, secondary)
-    {
-    }
-
-    public EventTrigger(EventTrigger other)
-      : base(other)
-    {
-    }
-
-    protected override void InitPanel()
-    {
-      Transform content = triggerActionsPanel.Find("Content");
-      content.Find("Tab1/Label").GetComponent<Text>().text = "Event Actions";
-      content.Find("Tab2").gameObject.SetActive(false);
-      content.Find("Tab3").gameObject.SetActive(false);
-    }
-
-    public void Trigger()
-    {
-      active = true;
-      active = false;
-    }
-
-    public void Trigger(List<TriggerActionDiscrete> actionsNeedingUpdateOut)
-    {
-      Trigger();
-      for (int i = 0; i < discreteActionsStart.Count; ++i)
-      {
-        if (discreteActionsStart[i].timerActive)
-          actionsNeedingUpdateOut.Add(discreteActionsStart[i]);
-      }
-    }
-  }
-
-  // Wrapper for easier handling of custom float triggers.
-  public class FloatTrigger : CustomTrigger
-  {
-    public FloatTrigger(MVRScript owner, string name, string secondary = null)
-      : base(owner, name, secondary)
-    {
-    }
-
-    public FloatTrigger(FloatTrigger other)
-      : base(other)
-    {
-    }
-
-    protected override void InitPanel()
-    {
-      Transform content = triggerActionsPanel.Find("Content");
-      content.Find("Tab2/Label").GetComponent<Text>().text = "Value Actions";
-      content.Find("Tab3/Label").GetComponent<Text>().text = "Event Actions";
-      content.Find("Tab2").GetComponent<Toggle>().isOn = true;
-      content.Find("Tab1").gameObject.SetActive(false);
-    }
-
-    public void Trigger(float v)
-    {
-      _transitionInterpValue = Mathf.Clamp01(v);
-      if (transitionInterpValueSlider != null)
-        transitionInterpValueSlider.value = _transitionInterpValue;
-      for (int i = 0; i < transitionActions.Count; ++i)
-        transitionActions[i].TriggerInterp(_transitionInterpValue, true);
-      for (int i = 0; i < discreteActionsEnd.Count; ++i)
-        discreteActionsEnd[i].Trigger();
-    }
-
-    public void Trigger(float v, List<TriggerActionDiscrete> actionsNeedingUpdateOut)
-    {
-      Trigger(v);
-      for (int i = 0; i < discreteActionsEnd.Count; ++i)
-      {
-        if (discreteActionsEnd[i].timerActive)
-          actionsNeedingUpdateOut.Add(discreteActionsEnd[i]);
-      }
-    }
   }
 }
