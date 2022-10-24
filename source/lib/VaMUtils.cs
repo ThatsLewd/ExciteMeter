@@ -82,7 +82,7 @@ namespace VaMUtils
     // Create VaM-UI Float slider (hint: use c# named parameters for optional arguments)
     public static UIDynamicSlider CreateSlider(out JSONStorableFloat storable, UIColumn side, string label, float defaultValue, float minValue, float maxValue, bool fixedRange = false, bool integer = false, bool interactable = true, bool register = true)
     {
-      storable = new JSONStorableFloat(label, defaultValue, minValue, maxValue, fixedRange, !interactable);
+      storable = new JSONStorableFloat(label, defaultValue, minValue, maxValue, fixedRange, interactable);
       if (register)
       {
         storable.storeType = JSONStorableParam.StoreType.Full;

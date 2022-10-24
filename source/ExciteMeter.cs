@@ -70,7 +70,7 @@ namespace ThatsLewd
     void CreateUI()
     {
       UIBuilder.CreateToggle(out playingStorable, UIColumn.LEFT, "Is Playing", false);
-      UIBuilder.CreateSlider(out exciteMeterStorable, UIColumn.LEFT, "Excitement Meter", 0f, 0f, 1000f, fixedRange: true, integer: true, interactable: false, register: false);
+      UIBuilder.CreateSlider(out exciteMeterStorable, UIColumn.LEFT, "Excitement Meter", 0f, 0f, 1000f, fixedRange: true, integer: true, register: false);
       UIBuilder.CreateAction(out resetTimerActionStorable, "Reset Excitement", HandleResetMeter);
       UIDynamicButton resetButton = UIBuilder.CreateButton(UIColumn.LEFT, "Reset Excitement", HandleResetMeter);
       resetButton.buttonColor = UIColor.YELLOW;
@@ -324,7 +324,7 @@ namespace ThatsLewd
           {
             value = triggerJSON["Value"].AsFloat,
           };
-          TriggerUtil.RestoreFromJSON(out trigger.action, "Trigger Action", json, setMissingToDefault);
+          TriggerUtil.RestoreFromJSON(out trigger.action, "Trigger Action", triggerJSON, setMissingToDefault);
           triggers.Add(trigger);
         }
 
