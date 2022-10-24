@@ -33,10 +33,12 @@ namespace VaMUtils
     public readonly static Color YELLOW = new Color(1.0f, 1.0f, 0.5f);
   }
 
-  public enum UIColumn
+  // IMPORTANT - DO NOT make custom enums. The dynamic C# complier crashes Unity when it encounters these for some reason
+  // :P
+  public partial struct UIColumn
   {
-    LEFT,
-    RIGHT,
+    public readonly static UIColumn LEFT = new UIColumn(0);
+    public readonly static UIColumn RIGHT = new UIColumn(1);
   }
 
   // ============================================================================================== //
@@ -120,26 +122,6 @@ namespace VaMUtils
         storable.storeType = JSONStorableParam.StoreType.Full;
         script.RegisterStringChooser(storable);
       }
-      UIDynamicPopup popup = script.CreateScrollablePopup(storable, side == UIColumn.RIGHT);
-      return popup;
-    }
-
-    // Create VaM-UI StringChooser for Enum
-    public static UIDynamicPopup CreateEnumChooser<TEnum>(out JSONStorableStringChooser storable, UIColumn side, string label, TEnum defaultValue, EnumSetCallback<TEnum> callback, bool register = true)
-      where TEnum : struct, IComparable, IConvertible, IFormattable
-    {
-      List<string> names = Enum.GetNames(typeof(TEnum)).ToList();
-      storable = new JSONStorableStringChooser(label, names, defaultValue.ToString(), label);
-      if (register)
-      {
-        storable.storeType = JSONStorableParam.StoreType.Full;
-        script.RegisterStringChooser(storable);
-      }
-      storable.setCallbackFunction += (string name) =>
-      {
-        TEnum v = (TEnum)Enum.Parse(typeof(TEnum), name);
-        callback(v);
-      };
       UIDynamicPopup popup = script.CreateScrollablePopup(storable, side == UIColumn.RIGHT);
       return popup;
     }
@@ -1049,6 +1031,45 @@ namespace VaMUtils
   public delegate Transform CreateUIElement(Transform prefab, bool rightSide);
   public delegate void EnumSetCallback<TEnum>(TEnum v);
   public delegate void TextureSetCallback(Texture2D tex);
+
+  // dumb custom struct stuff
+  public partial struct UIColumn : IEquatable<UIColumn>
+  {
+    private int value;
+    private UIColumn(int value)
+    {
+      this.value = value;
+    }
+
+    public bool Equals(UIColumn other)
+    {
+      return other.value == this.value;
+    }
+
+    public override bool Equals(object obj)
+    {
+      if (obj is UIColumn)
+      {
+        return this.Equals((UIColumn)obj);
+      }
+      return false;
+    }
+
+    public override int GetHashCode()
+    {
+      return value;
+    }
+
+    public static bool operator ==(UIColumn a, UIColumn b)
+    {
+      return a.Equals(b);
+    }
+
+    public static bool operator !=(UIColumn a, UIColumn b)
+    {
+      return !a.Equals(b);
+    }
+  }
 
   public class TextureSettings
   {

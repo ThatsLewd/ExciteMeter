@@ -52,6 +52,7 @@ namespace ThatsLewd
       TriggerUtil.Init(this);
       UIBuilder.Init(this, CreateUIElement);
 
+      CreateTriggers();
       CreateUI();
     }
 
