@@ -69,8 +69,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Compile Include="source/lib/VaMUtils.cs" />
-    <Compile Include="source/ExciteMeter.cs" />
+    <Compile Include="source/lib/VaMLib.cs" />
+    <Compile Include="source/ExcitementMeter.cs" />
   </ItemGroup>
 
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
