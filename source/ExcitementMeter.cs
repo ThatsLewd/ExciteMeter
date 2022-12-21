@@ -30,9 +30,10 @@ namespace ThatsLewd
     float eventTimer = 0f;
     float nextEventTime = 0f;
     float currentFillTime = 0f;
-    bool wasPlayingLastFrame = false;
+    bool doNextEvent = false;
+    bool climaxReached = false;
 
-    float uiUpdateTimer = 69f;
+    float uiUpdateTimer = 69f; // nice
     ExcitementEvent lastEvent = null;
 
     List<ExcitementEvent> events = new List<ExcitementEvent>();
@@ -142,8 +143,7 @@ namespace ThatsLewd
     void HandleResetMeter()
     {
       excitementMeterSlider.val = 0f;
-      DoNextEvent();
-      RecalculateFillTime();
+      QueueNextEvent();
     }
 
     void HandleAddEvent()
@@ -197,25 +197,31 @@ namespace ThatsLewd
 
       if (!isPlayingToggle.val)
       {
-        wasPlayingLastFrame = false;
         return;
       }
 
       if (excitementMeterSlider.val >= 1000f)
       {
-        if (wasPlayingLastFrame)
+        if (!climaxReached)
         {
           onClimaxTrigger.Trigger();
+          climaxReached = true;
         }
-
-        wasPlayingLastFrame = false;
         return;
+      }
+      else if (climaxReached)
+      {
+        climaxReached = false;
       }
 
       eventTimer += Time.deltaTime;
-      wasPlayingLastFrame = true;
 
       if (eventTimer > nextEventTime)
+      {
+        QueueNextEvent();
+      }
+
+      if (doNextEvent)
       {
         DoNextEvent();
         RecalculateFillTime();
@@ -243,8 +249,14 @@ namespace ThatsLewd
       eventInfoText.text.text = $"{lastEventString}\n{nextEventTimeString}";
     }
 
+    void QueueNextEvent()
+    {
+      doNextEvent = true;
+    }
+
     void DoNextEvent()
     {
+      doNextEvent = false;
       nextEventTime = UnityEngine.Random.Range(nextEventTimeMinSlider.val, nextEventTimeMaxSlider.val);
       eventTimer = 0f;
 
