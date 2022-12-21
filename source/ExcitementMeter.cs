@@ -366,13 +366,13 @@ namespace ThatsLewd
 
       public void StoreJSON(JSONClass json)
       {
-        excitementValueSlider.storable.StoreJSON(json);
+        excitementValueSlider.StoreJSON(json);
         action.StoreJSON(json);
       }
 
       public void RestoreFromJSON(JSONClass json)
       {
-        excitementValueSlider.storable.RestoreFromJSON(json);
+        excitementValueSlider.RestoreFromJSON(json);
         action.RestoreFromJSON(json);
       }
     }
